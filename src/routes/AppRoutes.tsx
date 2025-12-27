@@ -6,6 +6,7 @@ import Special from '@/pages/persons/Special';
 import Pakistani from '@/pages/persons/Pakistani';
 import TraderDetail from '@/pages/persons/TraderDetail';
 import BankLedger from '@/pages/persons/BankLedger';
+import Profile from '@/pages/profile/Profile';
 import NotFound from '@/pages/NotFound';
 import { isAuthenticated } from '@/lib/auth';
 
@@ -83,6 +84,16 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <BankLedger />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Profile */}
+      <Route
+        path="/dashboard/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

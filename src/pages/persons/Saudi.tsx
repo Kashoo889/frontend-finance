@@ -5,7 +5,9 @@ import Modal from '@/components/Modal';
 import BalanceDisplay from '@/components/BalanceDisplay';
 import { calculateSaudiBalance, formatNumber, SaudiEntry } from '@/data/dummyData';
 import { saudiAPI } from '@/lib/api';
-import { Edit, Plus, Loader2 } from 'lucide-react';
+import { Edit, Plus, Loader2, Trash2, Search, Download, Calendar } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Saudi Hisaab Kitaab page
@@ -13,11 +15,16 @@ import { Edit, Plus, Loader2 } from 'lucide-react';
  */
 const Saudi = () => {
   const [entries, setEntries] = useState<SaudiEntry[]>([]);
+  const [filteredEntries, setFilteredEntries] = useState<SaudiEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<SaudiEntry | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    fromDate: '',
+    toDate: '',
+  });
 
   // Form state for edit modal
   const [formData, setFormData] = useState({
@@ -46,12 +53,178 @@ const Saudi = () => {
       setIsLoading(true);
       const data = await saudiAPI.getAll();
       setEntries(data);
+      setFilteredEntries(data);
     } catch (error) {
       console.error('Error fetching entries:', error);
       // Fallback to empty array on error
       setEntries([]);
+      setFilteredEntries([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Filter entries by date range
+  const handleFilter = () => {
+    if (!dateFilter.fromDate && !dateFilter.toDate) {
+      setFilteredEntries(entries);
+      return;
+    }
+
+    const filtered = entries.filter((entry) => {
+      const entryDate = entry.date;
+      if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+      if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+      return true;
+    });
+
+    setFilteredEntries(filtered);
+  };
+
+  // Clear filter
+  const handleClearFilter = () => {
+    setDateFilter({ fromDate: '', toDate: '' });
+    setFilteredEntries(entries);
+  };
+
+  // Generate and download PDF
+  const handleDownloadPDF = () => {
+    try {
+      const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
+      
+      if (dataToExport.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      // Create new PDF document
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+    
+    // Calculate totals
+    const totalPKR = dataToExport.reduce((sum, entry) => sum + (entry.pkrAmount || 0), 0);
+    const totalRiyal = dataToExport.reduce((sum, entry) => {
+      const riyalAmount = (entry as any).riyalAmount !== undefined 
+        ? (entry as any).riyalAmount 
+        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+      return sum + riyalAmount;
+    }, 0);
+    const totalSubmittedSAR = dataToExport.reduce((sum, entry) => sum + (entry.submittedSar || 0), 0);
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SAUDI HISAAB KITAAB REPORT', 14, 15);
+    
+    // Report info
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const dateRange = dateFilter.fromDate && dateFilter.toDate 
+      ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
+      : 'All Entries';
+    doc.text(`Date Range: ${dateRange}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+    doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+
+    // Prepare table data
+    const tableData = dataToExport.map(entry => {
+      const riyalAmount = (entry as any).riyalAmount !== undefined 
+        ? (entry as any).riyalAmount 
+        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+      const balance = entry.balance !== undefined 
+        ? entry.balance 
+        : (riyalAmount - entry.submittedSar);
+      
+      return [
+        entry.date,
+        entry.time,
+        entry.refNo || '-',
+        formatNumber(entry.pkrAmount) + ' PKR',
+        entry.riyalRate.toFixed(2),
+        formatNumber(riyalAmount) + ' SAR',
+        formatNumber(entry.submittedSar) + ' SAR',
+        entry.reference2 || '-',
+        formatNumber(balance) + ' SAR'
+      ];
+    });
+
+    // Add summary totals row
+    tableData.push([
+      '',
+      '',
+      'TOTALS',
+      formatNumber(totalPKR) + ' PKR',
+      '',
+      formatNumber(totalRiyal) + ' SAR',
+      formatNumber(totalSubmittedSAR) + ' SAR',
+      '',
+      formatNumber(totalRiyal - totalSubmittedSAR) + ' SAR'
+    ]);
+
+      // Create table
+      autoTable(doc, {
+      startY: 38,
+      head: [['DATE', 'TIME', 'REF NO', 'PKR AMOUNT', 'RIYAL RATE', 'RIYAL AMOUNT', 'SUBMITTED SAR', 'REFERENCE 2', 'BALANCE (SAR)']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [30, 58, 138], // Dark blue
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [0, 0, 0]
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      },
+      columnStyles: {
+        0: { cellWidth: 25 }, // DATE
+        1: { cellWidth: 20 }, // TIME
+        2: { cellWidth: 25 }, // REF NO
+        3: { cellWidth: 35 }, // PKR AMOUNT
+        4: { cellWidth: 25 }, // RIYAL RATE
+        5: { cellWidth: 35 }, // RIYAL AMOUNT
+        6: { cellWidth: 35 }, // SUBMITTED SAR
+        7: { cellWidth: 30 }, // REFERENCE 2
+        8: { cellWidth: 35 }  // BALANCE
+      },
+      styles: {
+        overflow: 'linebreak',
+        cellPadding: 2
+      },
+      didParseCell: function (data: any) {
+        // Make totals row bold
+        if (data.row.index === tableData.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      }
+    });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Generate filename
+      const fileName = `Saudi_Hisaab_Kitaab_${dateFilter.fromDate || 'all'}_${dateFilter.toDate || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Save PDF
+      doc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please check the console for details.');
     }
   };
 
@@ -79,13 +252,33 @@ const Saudi = () => {
         pkrAmount: parseFloat(formData.pkrAmount),
         riyalRate: parseFloat(formData.riyalRate),
         submittedSar: parseFloat(formData.submittedSar),
-        reference2: formData.reference2,
+        reference2: formData.reference2.trim(),
       });
       setIsModalOpen(false);
+      setSelectedEntry(null);
       fetchEntries(); // Refresh table
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating entry:', error);
-      alert('Failed to update entry. Please try again.');
+      const errorMessage = error?.message || 'Failed to update entry. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (entry: SaudiEntry) => {
+    if (!window.confirm(`Are you sure you want to delete this entry?\n\nRef No: ${entry.refNo}\nDate: ${entry.date}\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await saudiAPI.delete(entry.id);
+      fetchEntries(); // Refresh table
+    } catch (error: any) {
+      console.error('Error deleting entry:', error);
+      const errorMessage = error?.message || 'Failed to delete entry. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -166,7 +359,10 @@ const Saudi = () => {
       key: 'riyalAmount',
       header: 'Riyal Amount',
       render: (row: SaudiEntry) => {
-        const riyalAmount = row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0;
+        // Use stored riyalAmount from backend, or calculate if not available (for backward compatibility)
+        const riyalAmount = (row as any).riyalAmount !== undefined 
+          ? (row as any).riyalAmount 
+          : (row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0);
         return formatNumber(riyalAmount) + ' SAR';
       },
     },
@@ -179,11 +375,16 @@ const Saudi = () => {
     {
       key: 'balance',
       header: 'Balance (SAR)',
-      render: (row: SaudiEntry & { balance?: number }) => {
+      render: (row: SaudiEntry & { balance?: number; riyalAmount?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
-        const balance = row.balance !== undefined 
-          ? row.balance 
-          : calculateSaudiBalance(row.pkrAmount, row.riyalRate, row.submittedSar);
+        let balance = row.balance;
+        if (balance === undefined) {
+          // Calculate: RIYAL AMOUNT - SUBMITTED SAR = Balance
+          const riyalAmount = row.riyalAmount !== undefined 
+            ? row.riyalAmount 
+            : (row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0);
+          balance = riyalAmount - row.submittedSar;
+        }
         return <BalanceDisplay amount={balance} currency="SAR" />;
       },
     },
@@ -191,13 +392,22 @@ const Saudi = () => {
       key: 'action',
       header: 'Action',
       render: (row: SaudiEntry) => (
-        <button
-          onClick={() => handleEdit(row)}
-          className="btn-primary text-xs py-1.5 px-3"
-        >
-          <Edit className="w-3.5 h-3.5 mr-1" />
-          Edit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleEdit(row)}
+            className="btn-primary text-xs py-1.5 px-3"
+          >
+            <Edit className="w-3.5 h-3.5 mr-1" />
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(row)}
+            className="btn-outline text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs py-1.5 px-3"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1" />
+            Delete
+          </button>
+        </div>
       ),
     },
   ];
@@ -218,7 +428,10 @@ const Saudi = () => {
         <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
           <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg flex-1">
             <p className="text-sm text-foreground">
-              <strong>Balance Formula:</strong> (PKR Amount ÷ Riyal Rate) - Submitted SAR
+              <strong>Balance Formula:</strong> RIYAL AMOUNT - SUBMITTED SAR = Balance
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Where: RIYAL AMOUNT = PKR AMOUNT ÷ RIYAL RATE
             </p>
           </div>
           <button
@@ -230,13 +443,116 @@ const Saudi = () => {
           </button>
         </div>
 
+        {/* Date Filter Section */}
+        <div className="mb-6 bg-card border border-border rounded-lg p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                From Date
+              </label>
+              <input
+                type="date"
+                value={dateFilter.fromDate}
+                onChange={(e) => setDateFilter({ ...dateFilter, fromDate: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                To Date
+              </label>
+              <input
+                type="date"
+                value={dateFilter.toDate}
+                onChange={(e) => setDateFilter({ ...dateFilter, toDate: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleFilter}
+                className="btn-accent flex items-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                Filter
+              </button>
+              <button
+                onClick={handleClearFilter}
+                className="btn-outline"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                className="btn-outline text-success hover:bg-success/10 hover:text-success flex items-center gap-2"
+                disabled={filteredEntries.length === 0 && entries.length === 0}
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+            </div>
+          </div>
+          {(dateFilter.fromDate || dateFilter.toDate) && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              Showing {filteredEntries.length} of {entries.length} entries
+            </div>
+          )}
+        </div>
+
+        {/* Summary Totals Section */}
+        {(filteredEntries.length > 0 || entries.length > 0) && (
+          <div className="mb-6 bg-card border border-border rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
+              Summary Totals {dateFilter.fromDate || dateFilter.toDate ? '(Filtered)' : '(All Entries)'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Total PKR Amount */}
+              <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Total PKR Amount</p>
+                <p className="text-xl font-bold text-foreground">
+                  {formatNumber(
+                    (filteredEntries.length > 0 ? filteredEntries : entries).reduce((sum, entry) => sum + (entry.pkrAmount || 0), 0)
+                  )} PKR
+                </p>
+              </div>
+              
+              {/* Total Riyal Amount */}
+              <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Total Riyal Amount</p>
+                <p className="text-xl font-bold text-foreground">
+                  {formatNumber(
+                    (filteredEntries.length > 0 ? filteredEntries : entries).reduce((sum, entry) => {
+                      const riyalAmount = (entry as any).riyalAmount !== undefined 
+                        ? (entry as any).riyalAmount 
+                        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+                      return sum + riyalAmount;
+                    }, 0)
+                  )} SAR
+                </p>
+              </div>
+              
+              {/* Total Submitted SAR */}
+              <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Total Submitted SAR</p>
+                <p className="text-xl font-bold text-foreground">
+                  {formatNumber(
+                    (filteredEntries.length > 0 ? filteredEntries : entries).reduce((sum, entry) => sum + (entry.submittedSar || 0), 0)
+                  )} SAR
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
         ) : (
-          <Table columns={columns} data={entries} />
+          <Table columns={columns} data={filteredEntries.length > 0 ? filteredEntries : entries} />
         )}
       </main>
 

@@ -6,7 +6,18 @@ import Modal from '@/components/Modal';
 import BalanceDisplay from '@/components/BalanceDisplay';
 import { calculateRemainingAmount, formatNumber } from '@/data/dummyData';
 import { bankLedgerAPI, tradersAPI } from '@/lib/api';
-import { ArrowLeft, Edit, CreditCard, Plus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, CreditCard, Plus, Loader2, Trash2, Search, Download, Calendar } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+/**
+ * Normalize MongoDB entry (convert _id to id)
+ */
+const normalizeEntry = (entry: any) => {
+  if (!entry) return entry;
+  const { _id, ...rest } = entry;
+  return { id: _id?.toString() || entry.id || '', ...rest };
+};
 
 interface BankLedgerEntry {
   id: string;
@@ -14,12 +25,10 @@ interface BankLedgerEntry {
   referenceType: 'Online' | 'Cash';
   amountAdded: number;
   amountWithdrawn: number;
-  runningBalance?: number;
 }
 
-interface BankLedgerEntryWithBalance extends BankLedgerEntry {
-  runningBalance: number;
-}
+// Alias for consistency (no longer needs runningBalance since we calculate per entry)
+type BankLedgerEntryWithBalance = BankLedgerEntry;
 
 /**
  * Bank Ledger page
@@ -32,15 +41,21 @@ const BankLedger = () => {
   const [trader, setTrader] = useState<any>(null);
   const [bank, setBank] = useState<any>(null);
   const [entries, setEntries] = useState<BankLedgerEntryWithBalance[]>([]);
+  const [filteredEntries, setFilteredEntries] = useState<BankLedgerEntryWithBalance[]>([]);
   const [totalBalance, setTotalBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<BankLedgerEntry | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    fromDate: '',
+    toDate: '',
+  });
 
   // Form state for edit modal
   const [formData, setFormData] = useState({
+    date: '',
     referenceType: 'Online' as 'Online' | 'Cash',
     amountAdded: '',
     amountWithdrawn: '',
@@ -62,7 +77,6 @@ const BankLedger = () => {
       if (!traderId || !bankId || bankId === 'undefined') {
         console.error('Missing or invalid traderId or bankId:', { traderId, bankId });
         setIsLoading(false);
-        setError('Invalid bank ID. Please go back and try again.');
         return;
       }
 
@@ -109,8 +123,8 @@ const BankLedger = () => {
         // Fetch ledger entries
         const ledgerData = await bankLedgerAPI.getAll(traderId, bankId);
         
-        // Normalize entries and calculate running balance
-        let runningBalance = 0;
+        // Normalize entries and calculate total balance (running balance)
+        let totalRunningBalance = 0;
         const entriesWithBalance = (ledgerData.entries || []).map((entry: any) => {
           // Normalize entry (ensure id instead of _id)
           const { _id, ...rest } = entry;
@@ -121,17 +135,15 @@ const BankLedger = () => {
             amountWithdrawn: entry.amountWithdrawn || 0,
           };
           
-          // Calculate running balance
-          runningBalance += normalizedEntry.amountAdded - normalizedEntry.amountWithdrawn;
+          // Calculate running balance for total (cumulative)
+          totalRunningBalance += normalizedEntry.amountAdded - normalizedEntry.amountWithdrawn;
           
-          return {
-            ...normalizedEntry,
-            runningBalance,
-          };
+          return normalizedEntry;
         });
 
         setEntries(entriesWithBalance);
-        setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : runningBalance);
+        setFilteredEntries(entriesWithBalance);
+        setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
       } catch (error) {
         console.error('Error fetching bank ledger data:', error);
       } finally {
@@ -142,9 +154,152 @@ const BankLedger = () => {
     fetchData();
   }, [traderId, bankId]);
 
+  // Filter entries by date range
+  const handleFilter = () => {
+    if (!dateFilter.fromDate && !dateFilter.toDate) {
+      setFilteredEntries(entries);
+      return;
+    }
+
+    const filtered = entries.filter((entry) => {
+      const entryDate = entry.date;
+      if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+      if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+      return true;
+    });
+
+    setFilteredEntries(filtered);
+  };
+
+  // Clear filter
+  const handleClearFilter = () => {
+    setDateFilter({ fromDate: '', toDate: '' });
+    setFilteredEntries(entries);
+  };
+
+  // Generate and download PDF
+  const handleDownloadPDF = () => {
+    try {
+      const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
+      
+      if (dataToExport.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      // Create new PDF document
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+    
+    // Calculate totals
+    const totalAmountAdded = dataToExport.reduce((sum, entry) => sum + (entry.amountAdded || 0), 0);
+    const totalAmountWithdrawn = dataToExport.reduce((sum, entry) => sum + (entry.amountWithdrawn || 0), 0);
+    const totalRemaining = totalAmountAdded - totalAmountWithdrawn;
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`BANK LEDGER REPORT - ${bank?.name || 'Bank'} - ${trader?.name || 'Trader'}`, 14, 15);
+    
+    // Report info
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const dateRange = dateFilter.fromDate && dateFilter.toDate 
+      ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
+      : 'All Entries';
+    doc.text(`Date Range: ${dateRange}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+    doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+
+    // Prepare table data
+    const tableData = dataToExport.map(entry => {
+      const remainingAmount = (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
+      
+      return [
+        entry.date,
+        entry.referenceType,
+        formatNumber(entry.amountAdded || 0) + ' PKR',
+        formatNumber(entry.amountWithdrawn || 0) + ' PKR',
+        formatNumber(remainingAmount) + ' PKR'
+      ];
+    });
+
+    // Add summary totals row
+    tableData.push([
+      '',
+      'TOTALS',
+      formatNumber(totalAmountAdded) + ' PKR',
+      formatNumber(totalAmountWithdrawn) + ' PKR',
+      formatNumber(totalRemaining) + ' PKR'
+    ]);
+
+    // Create table
+    autoTable(doc, {
+      startY: 38,
+      head: [['DATE', 'REFERENCE TYPE', 'AMOUNT ADDED', 'AMOUNT WITHDRAWN', 'REMAINING AMOUNT']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [30, 58, 138], // Dark blue
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [0, 0, 0]
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      },
+      columnStyles: {
+        0: { cellWidth: 40 }, // DATE
+        1: { cellWidth: 50 }, // REFERENCE TYPE
+        2: { cellWidth: 50 }, // AMOUNT ADDED
+        3: { cellWidth: 50 }, // AMOUNT WITHDRAWN
+        4: { cellWidth: 50 }  // REMAINING AMOUNT
+      },
+      styles: {
+        overflow: 'linebreak',
+        cellPadding: 2
+      },
+      didParseCell: function (data: any) {
+        // Make totals row bold
+        if (data.row.index === tableData.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      }
+    });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Generate filename
+      const fileName = `Bank_Ledger_${trader?.name || 'Trader'}_${bank?.name || 'Bank'}_${dateFilter.fromDate || 'all'}_${dateFilter.toDate || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Save PDF
+      doc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please check the console for details.');
+    }
+  };
+
   const handleEdit = (entry: BankLedgerEntry) => {
     setSelectedEntry(entry);
     setFormData({
+      date: entry.date || '',
       referenceType: entry.referenceType,
       amountAdded: entry.amountAdded.toString(),
       amountWithdrawn: entry.amountWithdrawn.toString(),
@@ -158,18 +313,60 @@ const BankLedger = () => {
     setIsSaving(true);
     try {
       await bankLedgerAPI.update(traderId, bankId, selectedEntry.id, {
+        date: formData.date,
         referenceType: formData.referenceType,
         amountAdded: parseFloat(formData.amountAdded) || 0,
         amountWithdrawn: parseFloat(formData.amountWithdrawn) || 0,
       });
       setIsModalOpen(false);
+      setSelectedEntry(null);
       // Refresh data
       const ledgerData = await bankLedgerAPI.getAll(traderId!, bankId!);
-      setEntries(ledgerData.entries as BankLedgerEntryWithBalance[]);
-      setTotalBalance(ledgerData.totalBalance);
-    } catch (error) {
+      // Calculate total balance (running balance)
+      let totalRunningBalance = 0;
+      const entriesWithBalance = ledgerData.entries.map((entry: any) => {
+        totalRunningBalance += (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
+        return entry;
+      });
+      const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
+      setEntries(updatedEntries);
+      setFilteredEntries(updatedEntries);
+      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
+    } catch (error: any) {
       console.error('Error updating entry:', error);
-      alert('Failed to update entry. Please try again.');
+      const errorMessage = error?.message || 'Failed to update entry. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (entry: BankLedgerEntry) => {
+    if (!traderId || !bankId) return;
+    
+    if (!window.confirm(`Are you sure you want to delete this entry?\n\nDate: ${entry.date}\nAmount Added: ${entry.amountAdded} PKR\nAmount Withdrawn: ${entry.amountWithdrawn} PKR\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await bankLedgerAPI.delete(traderId, bankId, entry.id);
+      // Refresh data
+      const ledgerData = await bankLedgerAPI.getAll(traderId, bankId);
+      // Calculate total balance (running balance)
+      let totalRunningBalance = 0;
+      const entriesWithBalance = ledgerData.entries.map((entry: any) => {
+        totalRunningBalance += (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
+        return entry;
+      });
+      const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
+      setEntries(updatedEntries);
+      setFilteredEntries(updatedEntries);
+      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
+    } catch (error: any) {
+      console.error('Error deleting entry:', error);
+      const errorMessage = error?.message || 'Failed to delete entry. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -215,8 +412,16 @@ const BankLedger = () => {
       setAddFormErrors({});
       // Refresh data
       const ledgerData = await bankLedgerAPI.getAll(traderId, bankId);
-      setEntries(ledgerData.entries as BankLedgerEntryWithBalance[]);
-      setTotalBalance(ledgerData.totalBalance);
+      // Calculate total balance (running balance)
+      let totalRunningBalance = 0;
+      const entriesWithBalance = ledgerData.entries.map((entry: any) => {
+        totalRunningBalance += (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
+        return entry;
+      });
+      const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
+      setEntries(updatedEntries);
+      setFilteredEntries(updatedEntries);
+      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
     } catch (error) {
       console.error('Error creating entry:', error);
       alert('Failed to create entry. Please try again.');
@@ -315,25 +520,55 @@ const BankLedger = () => {
     {
       key: 'remainingAmount',
       header: 'Remaining Amount',
-      render: (row: BankLedgerEntryWithBalance) => (
-        <BalanceDisplay amount={row.runningBalance} currency="PKR" />
-      ),
+      render: (row: BankLedgerEntryWithBalance) => {
+        // Calculate: Amount Added - Amount Withdrawn = Remaining Amount (for this entry only)
+        const remainingAmount = (row.amountAdded || 0) - (row.amountWithdrawn || 0);
+        return <BalanceDisplay amount={remainingAmount} currency="PKR" />;
+      },
     },
     {
       key: 'action',
       header: 'Action',
       render: (row: BankLedgerEntryWithBalance) => (
-        <button
-          onClick={() => handleEdit(row)}
-          className="btn-primary text-xs py-1.5 px-3"
-        >
-          <Edit className="w-3.5 h-3.5 mr-1" />
-          Edit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleEdit(row)}
+            className="btn-primary text-xs py-1.5 px-3"
+          >
+            <Edit className="w-3.5 h-3.5 mr-1" />
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(row)}
+            className="btn-outline text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs py-1.5 px-3"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1" />
+            Delete
+          </button>
+        </div>
       ),
     },
   ];
 
+
+  if (!trader || !bank) {
+    return (
+      <div className="animate-fade-in">
+        <Topbar
+          title="Loading..."
+          breadcrumbs={[
+            { label: 'Dashboard', path: '/dashboard' },
+            { label: 'Pakistani Hisaab Kitaab', path: '/dashboard/persons/pakistani' },
+          ]}
+        />
+        <main className="p-6">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -385,7 +620,7 @@ const BankLedger = () => {
         <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
           <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg flex-1">
             <p className="text-sm text-foreground">
-              <strong>Remaining Amount Formula:</strong> Amount Added - Amount Withdrawn (running balance)
+              <strong>Remaining Amount Formula:</strong> Amount Added - Amount Withdrawn = Remaining Amount
             </p>
           </div>
           <button
@@ -397,6 +632,64 @@ const BankLedger = () => {
           </button>
         </div>
 
+        {/* Date Filter Section */}
+        <div className="mb-6 bg-card border border-border rounded-lg p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                From Date
+              </label>
+              <input
+                type="date"
+                value={dateFilter.fromDate}
+                onChange={(e) => setDateFilter({ ...dateFilter, fromDate: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                To Date
+              </label>
+              <input
+                type="date"
+                value={dateFilter.toDate}
+                onChange={(e) => setDateFilter({ ...dateFilter, toDate: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleFilter}
+                className="btn-accent flex items-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                Filter
+              </button>
+              <button
+                onClick={handleClearFilter}
+                className="btn-outline"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                className="btn-outline text-success hover:bg-success/10 hover:text-success flex items-center gap-2"
+                disabled={filteredEntries.length === 0 && entries.length === 0}
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+            </div>
+          </div>
+          {(dateFilter.fromDate || dateFilter.toDate) && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              Showing {filteredEntries.length} of {entries.length} entries
+            </div>
+          )}
+        </div>
+
         {/* Table */}
         {entries.length === 0 ? (
           <div className="text-center py-12 bg-card rounded-xl border border-border">
@@ -404,7 +697,7 @@ const BankLedger = () => {
             <p className="text-sm text-muted-foreground">Click "Add New Entry" to create your first entry.</p>
           </div>
         ) : (
-          <Table columns={columns} data={entries} />
+          <Table columns={columns} data={filteredEntries.length > 0 ? filteredEntries : entries} />
         )}
       </main>
 
@@ -534,6 +827,17 @@ const BankLedger = () => {
         size="md"
       >
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Date
+            </label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="input-field"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Reference Type

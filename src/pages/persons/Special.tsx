@@ -5,7 +5,9 @@ import Modal from '@/components/Modal';
 import BalanceDisplay from '@/components/BalanceDisplay';
 import { calculateSpecialBalance, formatNumber, SpecialEntry } from '@/data/dummyData';
 import { specialAPI } from '@/lib/api';
-import { Edit, Plus, Loader2 } from 'lucide-react';
+import { Edit, Plus, Loader2, Trash2, Search, Download, Calendar } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Special Hisaab Kitaab page
@@ -13,11 +15,16 @@ import { Edit, Plus, Loader2 } from 'lucide-react';
  */
 const Special = () => {
   const [entries, setEntries] = useState<SpecialEntry[]>([]);
+  const [filteredEntries, setFilteredEntries] = useState<SpecialEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<SpecialEntry | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    fromDate: '',
+    toDate: '',
+  });
 
   // Form state for edit modal
   const [formData, setFormData] = useState({
@@ -25,6 +32,7 @@ const Special = () => {
     balanceType: 'Online' as 'Online' | 'Cash',
     nameRupees: '',
     submittedRupees: '',
+    referencePerson: '',
   });
 
   // Form state for add modal
@@ -34,6 +42,7 @@ const Special = () => {
     balanceType: 'Online' as 'Online' | 'Cash',
     nameRupees: '',
     submittedRupees: '',
+    referencePerson: '',
   });
 
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
@@ -44,11 +53,168 @@ const Special = () => {
       setIsLoading(true);
       const data = await specialAPI.getAll();
       setEntries(data);
+      setFilteredEntries(data);
     } catch (error) {
       console.error('Error fetching entries:', error);
       setEntries([]);
+      setFilteredEntries([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Filter entries by date range
+  const handleFilter = () => {
+    if (!dateFilter.fromDate && !dateFilter.toDate) {
+      setFilteredEntries(entries);
+      return;
+    }
+
+    const filtered = entries.filter((entry) => {
+      const entryDate = entry.date;
+      if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+      if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+      return true;
+    });
+
+    setFilteredEntries(filtered);
+  };
+
+  // Clear filter
+  const handleClearFilter = () => {
+    setDateFilter({ fromDate: '', toDate: '' });
+    setFilteredEntries(entries);
+  };
+
+  // Generate and download PDF
+  const handleDownloadPDF = () => {
+    try {
+      const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
+      
+      if (dataToExport.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      // Create new PDF document
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+    
+    // Calculate totals
+    const totalNameRupees = dataToExport.reduce((sum, entry) => sum + (entry.nameRupees || 0), 0);
+    const totalSubmittedRupees = dataToExport.reduce((sum, entry) => sum + (entry.submittedRupees || 0), 0);
+    const totalBalance = dataToExport.reduce((sum, entry) => {
+      const balance = entry.balance !== undefined 
+        ? entry.balance 
+        : (entry.nameRupees - entry.submittedRupees);
+      return sum + balance;
+    }, 0);
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SPECIAL HISAAB KITAAB REPORT', 14, 15);
+    
+    // Report info
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const dateRange = dateFilter.fromDate && dateFilter.toDate 
+      ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
+      : 'All Entries';
+    doc.text(`Date Range: ${dateRange}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+    doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+
+    // Prepare table data
+    const tableData = dataToExport.map(entry => {
+      const balance = entry.balance !== undefined 
+        ? entry.balance 
+        : (entry.nameRupees - entry.submittedRupees);
+      
+      return [
+        entry.userName || '-',
+        entry.date,
+        entry.balanceType,
+        formatNumber(entry.nameRupees) + ' PKR',
+        formatNumber(entry.submittedRupees) + ' PKR',
+        (entry as any).referencePerson || '-',
+        formatNumber(balance) + ' PKR'
+      ];
+    });
+
+    // Add summary totals row
+    tableData.push([
+      '',
+      '',
+      'TOTALS',
+      formatNumber(totalNameRupees) + ' PKR',
+      formatNumber(totalSubmittedRupees) + ' PKR',
+      '',
+      formatNumber(totalBalance) + ' PKR'
+    ]);
+
+    // Create table
+    autoTable(doc, {
+      startY: 38,
+      head: [['USER NAME', 'DATE', 'BALANCE TYPE', 'NAME RUPEES', 'SUBMITTED RUPEES', 'REFERENCE PERSON', 'BALANCE']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [30, 58, 138], // Dark blue
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [0, 0, 0]
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      },
+      columnStyles: {
+        0: { cellWidth: 30 }, // USER NAME
+        1: { cellWidth: 25 }, // DATE
+        2: { cellWidth: 30 }, // BALANCE TYPE
+        3: { cellWidth: 35 }, // NAME RUPEES
+        4: { cellWidth: 35 }, // SUBMITTED RUPEES
+        5: { cellWidth: 40 }, // REFERENCE PERSON
+        6: { cellWidth: 35 }  // BALANCE
+      },
+      styles: {
+        overflow: 'linebreak',
+        cellPadding: 2
+      },
+      didParseCell: function (data: any) {
+        // Make totals row bold
+        if (data.row.index === tableData.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      }
+    });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Generate filename
+      const fileName = `Special_Hisaab_Kitaab_${dateFilter.fromDate || 'all'}_${dateFilter.toDate || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Save PDF
+      doc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please check the console for details.');
     }
   };
 
@@ -63,6 +229,7 @@ const Special = () => {
       balanceType: entry.balanceType,
       nameRupees: entry.nameRupees.toString(),
       submittedRupees: entry.submittedRupees.toString(),
+      referencePerson: (entry as any).referencePerson || '',
     });
     setIsModalOpen(true);
   };
@@ -73,16 +240,37 @@ const Special = () => {
     setIsSaving(true);
     try {
       await specialAPI.update(selectedEntry.id, {
-        userName: formData.userName,
+        userName: formData.userName.trim(),
         balanceType: formData.balanceType,
         nameRupees: parseFloat(formData.nameRupees),
         submittedRupees: parseFloat(formData.submittedRupees),
+        referencePerson: formData.referencePerson.trim(),
       });
       setIsModalOpen(false);
+      setSelectedEntry(null);
       fetchEntries(); // Refresh table
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating entry:', error);
-      alert('Failed to update entry. Please try again.');
+      const errorMessage = error?.message || 'Failed to update entry. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (entry: SpecialEntry) => {
+    if (!window.confirm(`Are you sure you want to delete this entry?\n\nUser: ${entry.userName}\nDate: ${entry.date}\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await specialAPI.delete(entry.id);
+      fetchEntries(); // Refresh table
+    } catch (error: any) {
+      console.error('Error deleting entry:', error);
+      const errorMessage = error?.message || 'Failed to delete entry. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -116,6 +304,7 @@ const Special = () => {
         balanceType: addFormData.balanceType,
         nameRupees: parseFloat(addFormData.nameRupees),
         submittedRupees: parseFloat(addFormData.submittedRupees),
+        referencePerson: addFormData.referencePerson.trim(),
       });
       setIsAddModalOpen(false);
       // Reset form
@@ -125,6 +314,7 @@ const Special = () => {
         balanceType: 'Online',
         nameRupees: '',
         submittedRupees: '',
+        referencePerson: '',
       });
       setAddFormErrors({});
       fetchEntries(); // Refresh table
@@ -166,6 +356,11 @@ const Special = () => {
       render: (row: SpecialEntry) => formatNumber(row.submittedRupees) + ' PKR',
     },
     {
+      key: 'referencePerson',
+      header: 'Reference Person',
+      render: (row: SpecialEntry) => (row as any).referencePerson || '-',
+    },
+    {
       key: 'balance',
       header: 'Balance',
       render: (row: SpecialEntry & { balance?: number }) => {
@@ -180,13 +375,22 @@ const Special = () => {
       key: 'action',
       header: 'Action',
       render: (row: SpecialEntry) => (
-        <button
-          onClick={() => handleEdit(row)}
-          className="btn-primary text-xs py-1.5 px-3"
-        >
-          <Edit className="w-3.5 h-3.5 mr-1" />
-          Edit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleEdit(row)}
+            className="btn-primary text-xs py-1.5 px-3"
+          >
+            <Edit className="w-3.5 h-3.5 mr-1" />
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(row)}
+            className="btn-outline text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs py-1.5 px-3"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1" />
+            Delete
+          </button>
+        </div>
       ),
     },
   ];
@@ -219,13 +423,71 @@ const Special = () => {
           </button>
         </div>
 
+        {/* Date Filter Section */}
+        <div className="mb-6 bg-card border border-border rounded-lg p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                From Date
+              </label>
+              <input
+                type="date"
+                value={dateFilter.fromDate}
+                onChange={(e) => setDateFilter({ ...dateFilter, fromDate: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                To Date
+              </label>
+              <input
+                type="date"
+                value={dateFilter.toDate}
+                onChange={(e) => setDateFilter({ ...dateFilter, toDate: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleFilter}
+                className="btn-accent flex items-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                Filter
+              </button>
+              <button
+                onClick={handleClearFilter}
+                className="btn-outline"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                className="btn-outline text-success hover:bg-success/10 hover:text-success flex items-center gap-2"
+                disabled={filteredEntries.length === 0 && entries.length === 0}
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+            </div>
+          </div>
+          {(dateFilter.fromDate || dateFilter.toDate) && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              Showing {filteredEntries.length} of {entries.length} entries
+            </div>
+          )}
+        </div>
+
         {/* Table */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
         ) : (
-          <Table columns={columns} data={entries} />
+          <Table columns={columns} data={filteredEntries.length > 0 ? filteredEntries : entries} />
         )}
       </main>
 
@@ -322,7 +584,7 @@ const Special = () => {
             </div>
 
             {/* Submitted Rupees */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
                 Submitted Rupees <span className="text-destructive">*</span>
               </label>
@@ -341,6 +603,22 @@ const Special = () => {
               {addFormErrors.submittedRupees && (
                 <p className="text-sm text-destructive mt-1">{addFormErrors.submittedRupees}</p>
               )}
+            </div>
+
+            {/* Reference Person */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Reference Person
+              </label>
+              <input
+                type="text"
+                value={addFormData.referencePerson}
+                onChange={(e) => {
+                  setAddFormData({ ...addFormData, referencePerson: e.target.value });
+                }}
+                className="input-field"
+                placeholder="Enter reference person name"
+              />
             </div>
           </div>
 
@@ -427,6 +705,18 @@ const Special = () => {
               value={formData.submittedRupees}
               onChange={(e) => setFormData({ ...formData, submittedRupees: e.target.value })}
               className="input-field"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Reference Person
+            </label>
+            <input
+              type="text"
+              value={formData.referencePerson}
+              onChange={(e) => setFormData({ ...formData, referencePerson: e.target.value })}
+              className="input-field"
+              placeholder="Enter reference person name"
             />
           </div>
           <div className="flex gap-3 pt-4">

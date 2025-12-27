@@ -118,6 +118,7 @@ export const specialAPI = {
     balanceType?: 'Online' | 'Cash';
     nameRupees?: number;
     submittedRupees?: number;
+    referencePerson?: string;
   }) => {
     const data = await apiRequest(`/special/${id}`, {
       method: 'PUT',
