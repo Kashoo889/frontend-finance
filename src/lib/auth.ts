@@ -2,7 +2,9 @@
  * Authentication API utilities
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { getApiUrl } from './api';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface LoginResponse {
   success: boolean;
@@ -23,7 +25,7 @@ export const login = async (
   password: string
 ): Promise<LoginResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(getApiUrl('/auth/login'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -90,7 +92,7 @@ export const getCurrentUser = async (): Promise<{
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    const response = await fetch(getApiUrl('/auth/me'), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +126,7 @@ export const changePassword = async (
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    const response = await fetch(getApiUrl('/auth/change-password'), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

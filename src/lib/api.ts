@@ -2,7 +2,13 @@
  * API utilities for backend integration
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// Helper to ensure /api suffix is always present
+export const getApiUrl = (endpoint: string) => {
+  const base = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+  return `${base}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+};
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -21,7 +27,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(getApiUrl(endpoint), {
     ...options,
     headers,
   });
