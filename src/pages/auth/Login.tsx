@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Landmark, Mail, Lock, Loader2 } from 'lucide-react';
 import { login } from '@/lib/auth';
 import { useLanguage } from '@/contexts/LanguageContext';
-import LanguageToggle from '@/components/LanguageToggle';
 
 /**
  * Login Page Component
@@ -97,12 +96,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4 relative">
-      {/* Language Toggle - Top Right/Left based on RTL */}
-      <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4">
-        <LanguageToggle />
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4">
       {/* Login Card */}
       <div className="w-full max-w-md animate-fade-in">
         <div className="bg-card rounded-2xl shadow-2xl border border-border p-8 space-y-6">

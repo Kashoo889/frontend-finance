@@ -4,7 +4,6 @@ import { ChevronRight, User, LogOut, Settings, ChevronDown } from 'lucide-react'
 import { logout, getCurrentUser } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import LanguageToggle from './LanguageToggle';
 
 interface BreadcrumbItem {
   label: string;
@@ -105,10 +104,8 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
         <h1 className="page-title">{title}</h1>
       </div>
 
-      {/* Language Toggle and User Profile Menu */}
-      <div className="flex items-center gap-3">
-        <LanguageToggle />
-        <div className="relative" ref={menuRef}>
+      {/* User Profile Menu */}
+      <div className="relative ml-4" ref={menuRef}>
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors group"
