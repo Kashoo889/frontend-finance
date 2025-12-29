@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { logout, getCurrentUser } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageToggle from './LanguageToggle';
 
 interface BreadcrumbItem {
   label: string;
@@ -21,6 +23,7 @@ interface TopbarProps {
 const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -60,8 +63,8 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
     logout();
     navigate('/login');
     toast({
-      title: 'Logged out',
-      description: 'You have been successfully logged out',
+      title: t('common.loggedOut'),
+      description: t('common.loggedOutDesc'),
     });
   };
 
@@ -102,8 +105,10 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
         <h1 className="page-title">{title}</h1>
       </div>
 
-      {/* User Profile Menu */}
-      <div className="relative ml-4" ref={menuRef}>
+      {/* Language Toggle and User Profile Menu */}
+      <div className="flex items-center gap-3">
+        <LanguageToggle />
+        <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors group"
@@ -133,7 +138,7 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
                 className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-foreground"
               >
                 <User className="w-4 h-4" />
-                <span>Profile</span>
+                <span>{t('common.profile')}</span>
               </Link>
               <Link
                 to="/dashboard/profile"
@@ -141,7 +146,7 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
                 className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-foreground"
               >
                 <Settings className="w-4 h-4" />
-                <span>Settings</span>
+                <span>{t('common.settings')}</span>
               </Link>
               <div className="border-t border-border my-1" />
               <button
@@ -149,11 +154,12 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-foreground text-left"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <span>{t('common.logout')}</span>
               </button>
             </div>
           </div>
         )}
+        </div>
       </div>
     </header>
   );

@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -97,6 +98,64 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+  }
+
+  [dir='rtl'] {
+    font-family: 'Noto Sans Arabic', 'Inter', sans-serif;
+  }
+
+  [dir='rtl'] .sidebar-link,
+  [dir='rtl'] .breadcrumb {
+    direction: rtl;
+  }
+
+  [dir='rtl'] input,
+  [dir='rtl'] textarea,
+  [dir='rtl'] select {
+    direction: rtl;
+    text-align: right;
+  }
+
+  [dir='rtl'] .flex {
+    flex-direction: row-reverse;
+  }
+
+  [dir='rtl'] .ml-4 {
+    margin-left: 0;
+    margin-right: 1rem;
+  }
+
+  [dir='rtl'] .mr-4 {
+    margin-right: 0;
+    margin-left: 1rem;
+  }
+
+  [dir='rtl'] .pl-10 {
+    padding-left: 0.5rem;
+    padding-right: 2.5rem;
+  }
+
+  [dir='rtl'] .pr-10 {
+    padding-right: 0.5rem;
+    padding-left: 2.5rem;
+  }
+
+  [dir='rtl'] .text-left {
+    text-align: right;
+  }
+
+  [dir='rtl'] .text-right {
+    text-align: left;
+  }
+
+  [dir='rtl'] .absolute.left-0 {
+    left: auto;
+    right: 0;
+  }
+
+  [dir='rtl'] .absolute.right-0 {
+    right: auto;
+    left: 0;
   }
 }
 

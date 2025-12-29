@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { isAuthenticated } from '@/lib/auth';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   LayoutDashboard,
   Users,
@@ -13,40 +14,41 @@ import {
   Globe,
 } from 'lucide-react';
 
-// Navigation items configuration
-const navItems = [
-  {
-    label: 'Dashboard',
-    path: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    label: 'Persons',
-    icon: Users,
-    children: [
-      {
-        label: 'Saudi Hisaab Kitaab',
-        path: '/dashboard/persons/saudi',
-        icon: Globe,
-      },
-      {
-        label: 'Pakistani Hisaab Kitaab',
-        path: '/dashboard/persons/pakistani',
-        icon: Landmark,
-      },
-      {
-        label: 'Special Hisaab Kitaab',
-        path: '/dashboard/persons/special',
-        icon: Star,
-      },
-    ],
-  },
-];
-
 const Sidebar = () => {
   const location = useLocation();
+  const { t } = useLanguage();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>(['Persons']);
+
+  // Navigation items configuration
+  const navItems = [
+    {
+      label: t('common.dashboard'),
+      path: '/dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      label: t('common.traders'),
+      icon: Users,
+      children: [
+        {
+          label: t('common.saudi'),
+          path: '/dashboard/persons/saudi',
+          icon: Globe,
+        },
+        {
+          label: t('common.pakistani'),
+          path: '/dashboard/persons/pakistani',
+          icon: Landmark,
+        },
+        {
+          label: t('common.special'),
+          path: '/dashboard/persons/special',
+          icon: Star,
+        },
+      ],
+    },
+  ];
 
   // Don't render sidebar on login page or if not authenticated
   const isLoginPage = location.pathname === '/' || location.pathname === '/login';
@@ -77,7 +79,7 @@ const Sidebar = () => {
         </div>
         <div>
           <h1 className="text-lg font-bold text-sidebar-foreground">Finance</h1>
-          <p className="text-xs text-sidebar-muted">Dashboard</p>
+          <p className="text-xs text-sidebar-muted">{t('common.dashboard')}</p>
         </div>
       </div>
 
@@ -141,7 +143,7 @@ const Sidebar = () => {
       {/* Footer */}
       <div className="px-6 py-4 border-t border-sidebar-border">
         <p className="text-xs text-sidebar-muted text-center">
-          © 2024 Finance Dashboard
+          © 2026 {t('common.dashboard')}
         </p>
       </div>
     </div>

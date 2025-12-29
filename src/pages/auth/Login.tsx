@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Landmark, Mail, Lock, Loader2 } from 'lucide-react';
 import { login } from '@/lib/auth';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageToggle from '@/components/LanguageToggle';
 
 /**
  * Login Page Component
@@ -9,6 +11,7 @@ import { login } from '@/lib/auth';
  */
 const Login = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -29,16 +32,16 @@ const Login = () => {
 
     // Email validation
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('login.emailRequired');
     } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+      newErrors.email = t('login.invalidEmail');
     }
 
     // Password validation
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = t('login.passwordRequired');
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = t('login.passwordMinLength');
     }
 
     setErrors(newErrors);
@@ -82,11 +85,11 @@ const Login = () => {
         // Navigate to dashboard
         navigate('/dashboard', { replace: true });
       } else {
-        setErrors({ general: response.error || 'Login failed. Please try again.' });
+        setErrors({ general: response.error || t('login.loginFailed') });
       }
     } catch (error) {
       setErrors({
-        general: error instanceof Error ? error.message : 'An unexpected error occurred',
+        general: error instanceof Error ? error.message : t('login.networkError'),
       });
     } finally {
       setIsLoading(false);
@@ -94,7 +97,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4 relative">
+      {/* Language Toggle - Top Right/Left based on RTL */}
+      <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4">
+        <LanguageToggle />
+      </div>
+
       {/* Login Card */}
       <div className="w-full max-w-md animate-fade-in">
         <div className="bg-card rounded-2xl shadow-2xl border border-border p-8 space-y-6">
@@ -104,9 +112,9 @@ const Login = () => {
               <Landmark className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
+              <h1 className="text-2xl font-bold text-foreground">{t('login.title')}</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Sign in to your Finance Dashboard
+                {t('login.subtitle')}
               </p>
             </div>
           </div>
@@ -126,7 +134,7 @@ const Login = () => {
                 htmlFor="email"
                 className="block text-sm font-medium text-foreground"
               >
-                Email
+                {t('common.email')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -143,7 +151,7 @@ const Login = () => {
                       ? 'border-destructive focus:ring-destructive'
                       : 'focus:ring-accent'
                   }`}
-                  placeholder="Enter your email"
+                  placeholder={t('common.enterEmail')}
                   disabled={isLoading}
                 />
               </div>
@@ -160,7 +168,7 @@ const Login = () => {
                 htmlFor="password"
                 className="block text-sm font-medium text-foreground"
               >
-                Password
+                {t('common.password')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -177,7 +185,7 @@ const Login = () => {
                       ? 'border-destructive focus:ring-destructive'
                       : 'focus:ring-accent'
                   }`}
-                  placeholder="Enter your password"
+                  placeholder={t('common.enterPassword')}
                   disabled={isLoading}
                 />
               </div>
@@ -197,10 +205,10 @@ const Login = () => {
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Signing in...
+                  {t('login.signingIn')}
                 </span>
               ) : (
-                'Sign In'
+                t('common.signIn')
               )}
             </button>
           </form>
@@ -208,7 +216,7 @@ const Login = () => {
 
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground mt-6">
-          © 2026 Hisab Kitaab All rights reserved.
+          {t('login.copyright')}
         </p>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { BrowserRouter, useLocation } from "react-router-dom";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import AppRoutes from "@/routes/AppRoutes";
 import { isAuthenticated } from "@/lib/auth";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 const queryClient = new QueryClient();
 
@@ -39,13 +40,15 @@ const LayoutWrapper = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <LayoutWrapper />
-      </BrowserRouter>
-    </TooltipProvider>
+    <LanguageProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <LayoutWrapper />
+        </BrowserRouter>
+      </TooltipProvider>
+    </LanguageProvider>
   </QueryClientProvider>
 );
 
