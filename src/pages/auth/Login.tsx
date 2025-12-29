@@ -208,7 +208,7 @@ const Login = () => {
 
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground mt-6">
-          © 2024 Kashif Hisaab Kitaab. All rights reserved.
+          © 2026 Hisab Kitaab All rights reserved.
         </p>
       </div>
     </div>
