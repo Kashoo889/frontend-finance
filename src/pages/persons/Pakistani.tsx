@@ -4,7 +4,8 @@ import Topbar from '@/components/Topbar';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
 import { tradersAPI, banksAPI } from '@/lib/api';
-import { Building2, ArrowRight, Wallet, Plus, Loader2, X } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth';
+import { Building2, ArrowRight, Wallet, Plus, Loader2, X, Trash2 } from 'lucide-react';
 
 interface Trader {
   id: string;
@@ -39,6 +40,23 @@ const Pakistani = () => {
 
   const [banks, setBanks] = useState<BankForm[]>([{ name: '' }]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [userRole, setUserRole] = useState<string>('user');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  // Fetch user role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const user = await getCurrentUser();
+        setUserRole(user.role || 'user');
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole('user');
+      }
+    };
+
+    fetchUserRole();
+  }, []);
 
   // Fetch traders from API
   useEffect(() => {
@@ -60,6 +78,38 @@ const Pakistani = () => {
 
   const handleTraderClick = (traderId: string) => {
     navigate(`/dashboard/persons/pakistani/${traderId}`);
+  };
+
+  // Handle delete trader
+  const handleDeleteTrader = async (e: React.MouseEvent, traderId: string, traderName: string) => {
+    e.stopPropagation(); // Prevent card click
+
+    const bankCount = traders.find(t => t.id === traderId)?.banks?.length || 0;
+    const confirmMessage = bankCount > 0
+      ? `Are you sure you want to delete "${traderName}"?\n\nThis trader has ${bankCount} bank account(s). You must delete all bank accounts first before deleting the trader.\n\nThis action cannot be undone.`
+      : `Are you sure you want to delete "${traderName}"?\n\nThis action cannot be undone.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsDeleting(traderId);
+    try {
+      await tradersAPI.delete(traderId);
+      // Refresh traders list
+      const updatedTraders = await tradersAPI.getAll();
+      setTraders(updatedTraders);
+    } catch (error: any) {
+      console.error('Error deleting trader:', error);
+      const errorMessage = error?.message || 'Failed to delete trader. Please try again.';
+      if (errorMessage.includes('banks')) {
+        alert(errorMessage);
+      } else {
+        alert(errorMessage);
+      }
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   // Add bank form row
@@ -216,8 +266,25 @@ const Pakistani = () => {
                 key={trader.id}
                 interactive
                 onClick={() => handleTraderClick(trader.id)}
-                className="group"
+                className="group relative"
               >
+                {/* Delete button for admin */}
+                {userRole === 'admin' && (
+                  <button
+                    onClick={(e) => handleDeleteTrader(e, trader.id, trader.name)}
+                    disabled={isDeleting === trader.id}
+                    className="absolute top-3 right-3 z-10 p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors disabled:opacity-50"
+                    aria-label="Delete trader"
+                    title="Delete trader"
+                  >
+                    {isDeleting === trader.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
+
                 {/* Header with icon */}
                 <div className="flex items-start justify-between mb-4">
                   <div

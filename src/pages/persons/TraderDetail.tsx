@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Topbar from '@/components/Topbar';
 import Card from '@/components/Card';
 import { tradersAPI } from '@/lib/api';
-import { ArrowLeft, CreditCard, ArrowRight, Loader2 } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth';
+import { ArrowLeft, CreditCard, ArrowRight, Loader2, Trash2 } from 'lucide-react';
 
 interface Bank {
   id: string;
@@ -32,6 +33,23 @@ const TraderDetail = () => {
   const [trader, setTrader] = useState<Trader | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('user');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Fetch user role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const user = await getCurrentUser();
+        setUserRole(user.role || 'user');
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole('user');
+      }
+    };
+
+    fetchUserRole();
+  }, []);
 
   // Fetch trader data
   useEffect(() => {
@@ -93,6 +111,32 @@ const TraderDetail = () => {
       return;
     }
     navigate(`/dashboard/persons/pakistani/${traderId}/bank/${bankId}`);
+  };
+
+  // Handle delete trader
+  const handleDeleteTrader = async () => {
+    if (!trader) return;
+
+    const bankCount = trader.banks?.length || 0;
+    const confirmMessage = bankCount > 0
+      ? `Are you sure you want to delete "${trader.name}"?\n\nThis trader has ${bankCount} bank account(s). You must delete all bank accounts first before deleting the trader.\n\nThis action cannot be undone.`
+      : `Are you sure you want to delete "${trader.name}"?\n\nThis action cannot be undone.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await tradersAPI.delete(trader.id);
+      // Navigate back to traders list
+      navigate('/dashboard/persons/pakistani');
+    } catch (error: any) {
+      console.error('Error deleting trader:', error);
+      const errorMessage = error?.message || 'Failed to delete trader. Please try again.';
+      alert(errorMessage);
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -165,18 +209,41 @@ const TraderDetail = () => {
         </button>
 
         {/* Trader Info */}
-        <div className="mb-6 flex items-center gap-4">
-          <div
-            className={`w-16 h-16 rounded-xl bg-gradient-to-br ${trader.color} flex items-center justify-center text-white font-bold text-xl`}
-          >
-            {trader.shortName}
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div
+              className={`w-16 h-16 rounded-xl bg-gradient-to-br ${trader.color} flex items-center justify-center text-white font-bold text-xl`}
+            >
+              {trader.shortName}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">{trader.name}</h2>
+              <p className="text-muted-foreground">
+                {trader.banks.length} Bank {trader.banks.length === 1 ? 'Account' : 'Accounts'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">{trader.name}</h2>
-            <p className="text-muted-foreground">
-              {trader.banks.length} Bank {trader.banks.length === 1 ? 'Account' : 'Accounts'}
-            </p>
-          </div>
+          {/* Delete button for admin */}
+          {userRole === 'admin' && (
+            <button
+              onClick={handleDeleteTrader}
+              disabled={isDeleting}
+              className="btn-outline text-destructive hover:bg-destructive hover:text-destructive-foreground flex items-center gap-2 px-4 py-2 disabled:opacity-50"
+              title="Delete trader"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Delete Trader
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Info Card */}
