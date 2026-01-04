@@ -25,6 +25,7 @@ interface BankLedgerEntry {
   referenceType: 'Online' | 'Cash';
   amountAdded: number;
   amountWithdrawn: number;
+  referencePerson?: string;
 }
 
 // Alias for consistency (no longer needs runningBalance since we calculate per entry)
@@ -59,6 +60,7 @@ const BankLedger = () => {
     referenceType: 'Online' as 'Online' | 'Cash',
     amountAdded: '',
     amountWithdrawn: '',
+    referencePerson: '',
   });
 
   // Form state for add modal
@@ -67,6 +69,7 @@ const BankLedger = () => {
     referenceType: 'Online' as 'Online' | 'Cash',
     amountAdded: '',
     amountWithdrawn: '',
+    referencePerson: '',
   });
 
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
@@ -216,9 +219,10 @@ const BankLedger = () => {
       
       return [
         entry.date,
-        entry.referenceType,
+        entry.referenceType === 'Online' ? 'آن لائن' : 'نقد',
         formatNumber(entry.amountAdded || 0) + ' PKR',
         formatNumber(entry.amountWithdrawn || 0) + ' PKR',
+        (entry as any).referencePerson || '-',
         formatNumber(remainingAmount) + ' PKR'
       ];
     });
@@ -229,13 +233,14 @@ const BankLedger = () => {
       'TOTALS',
       formatNumber(totalAmountAdded) + ' PKR',
       formatNumber(totalAmountWithdrawn) + ' PKR',
+      '',
       formatNumber(totalRemaining) + ' PKR'
     ]);
 
     // Create table
     autoTable(doc, {
       startY: 38,
-      head: [['DATE', 'REFERENCE TYPE', 'AMOUNT ADDED', 'AMOUNT WITHDRAWN', 'REMAINING AMOUNT']],
+      head: [['تاریخ', 'حوالہ کی قسم', 'جمع شدہ رقم', 'نکلوائی گئی رقم', 'حوالہ شخص', 'باقی رقم']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -256,7 +261,8 @@ const BankLedger = () => {
         1: { cellWidth: 50 }, // REFERENCE TYPE
         2: { cellWidth: 50 }, // AMOUNT ADDED
         3: { cellWidth: 50 }, // AMOUNT WITHDRAWN
-        4: { cellWidth: 50 }  // REMAINING AMOUNT
+        4: { cellWidth: 50 }, // REFERENCE PERSON
+        5: { cellWidth: 50 }  // REMAINING AMOUNT
       },
       styles: {
         overflow: 'linebreak',
@@ -303,6 +309,7 @@ const BankLedger = () => {
       referenceType: entry.referenceType,
       amountAdded: entry.amountAdded.toString(),
       amountWithdrawn: entry.amountWithdrawn.toString(),
+      referencePerson: (entry as any).referencePerson || '',
     });
     setIsModalOpen(true);
   };
@@ -317,6 +324,7 @@ const BankLedger = () => {
         referenceType: formData.referenceType,
         amountAdded: parseFloat(formData.amountAdded) || 0,
         amountWithdrawn: parseFloat(formData.amountWithdrawn) || 0,
+        referencePerson: formData.referencePerson.trim(),
       });
       setIsModalOpen(false);
       setSelectedEntry(null);
@@ -400,6 +408,7 @@ const BankLedger = () => {
         referenceType: addFormData.referenceType,
         amountAdded: parseFloat(addFormData.amountAdded) || 0,
         amountWithdrawn: parseFloat(addFormData.amountWithdrawn) || 0,
+        referencePerson: addFormData.referencePerson.trim(),
       });
       setIsAddModalOpen(false);
       // Reset form
@@ -408,6 +417,7 @@ const BankLedger = () => {
         referenceType: 'Online',
         amountAdded: '',
         amountWithdrawn: '',
+        referencePerson: '',
       });
       setAddFormErrors({});
       // Refresh data
@@ -477,10 +487,10 @@ const BankLedger = () => {
 
   // Table column definitions
   const columns: Column<BankLedgerEntryWithBalance>[] = [
-    { key: 'date', header: 'Date' },
+    { key: 'date', header: 'تاریخ' },
     {
       key: 'referenceType',
-      header: 'Reference Type',
+      header: 'حوالہ کی قسم',
       render: (row: BankLedgerEntryWithBalance) => (
         <span
           className={`px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -489,13 +499,13 @@ const BankLedger = () => {
               : 'bg-warning/10 text-warning'
           }`}
         >
-          {row.referenceType}
+          {row.referenceType === 'Online' ? 'آن لائن' : 'نقد'}
         </span>
       ),
     },
     {
       key: 'amountAdded',
-      header: 'Amount Added',
+      header: 'جمع شدہ رقم',
       render: (row: BankLedgerEntryWithBalance) =>
         row.amountAdded > 0 ? (
           <span className="text-success font-medium">
@@ -507,7 +517,7 @@ const BankLedger = () => {
     },
     {
       key: 'amountWithdrawn',
-      header: 'Amount Withdrawn',
+      header: 'نکلوائی گئی رقم',
       render: (row: BankLedgerEntryWithBalance) =>
         row.amountWithdrawn > 0 ? (
           <span className="text-destructive font-medium">
@@ -518,8 +528,13 @@ const BankLedger = () => {
         ),
     },
     {
+      key: 'referencePerson',
+      header: 'حوالہ شخص',
+      render: (row: BankLedgerEntryWithBalance) => (row as any).referencePerson || '-',
+    },
+    {
       key: 'remainingAmount',
-      header: 'Remaining Amount',
+      header: 'باقی رقم',
       render: (row: BankLedgerEntryWithBalance) => {
         // Calculate: Amount Added - Amount Withdrawn = Remaining Amount (for this entry only)
         const remainingAmount = (row.amountAdded || 0) - (row.amountWithdrawn || 0);
@@ -528,7 +543,7 @@ const BankLedger = () => {
     },
     {
       key: 'action',
-      header: 'Action',
+      header: 'عمل',
       render: (row: BankLedgerEntryWithBalance) => (
         <div className="flex items-center gap-2">
           <button
@@ -714,7 +729,7 @@ const BankLedger = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Date <span className="text-destructive">*</span>
+              تاریخ <span className="text-destructive">*</span>
             </label>
             <input
               type="date"
@@ -733,7 +748,7 @@ const BankLedger = () => {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Reference Type <span className="text-destructive">*</span>
+              حوالہ کی قسم <span className="text-destructive">*</span>
             </label>
             <select
               value={addFormData.referenceType}
@@ -742,14 +757,14 @@ const BankLedger = () => {
               }
               className="select-field"
             >
-              <option value="Online">Online</option>
-              <option value="Cash">Cash</option>
+              <option value="Online">آن لائن</option>
+              <option value="Cash">نقد</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Amount Added
+              جمع شدہ رقم
             </label>
             <input
               type="number"
@@ -772,7 +787,7 @@ const BankLedger = () => {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Amount Withdrawn
+              نکلوائی گئی رقم
             </label>
             <input
               type="number"
@@ -788,6 +803,21 @@ const BankLedger = () => {
             <p className="text-xs text-muted-foreground mt-1">
               Leave empty if no amount was withdrawn
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              حوالہ شخص
+            </label>
+            <input
+              type="text"
+              value={addFormData.referencePerson}
+              onChange={(e) => {
+                setAddFormData({ ...addFormData, referencePerson: e.target.value });
+              }}
+              className="input-field"
+              placeholder="Enter reference person name"
+            />
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-border">
@@ -829,7 +859,7 @@ const BankLedger = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Date
+              تاریخ
             </label>
             <input
               type="date"
@@ -840,7 +870,7 @@ const BankLedger = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Reference Type
+              حوالہ کی قسم
             </label>
             <select
               value={formData.referenceType}
@@ -849,13 +879,13 @@ const BankLedger = () => {
               }
               className="select-field"
             >
-              <option value="Online">Online</option>
-              <option value="Cash">Cash</option>
+              <option value="Online">آن لائن</option>
+              <option value="Cash">نقد</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Amount Added
+              جمع شدہ رقم
             </label>
             <input
               type="number"
@@ -866,13 +896,25 @@ const BankLedger = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Amount Withdrawn
+              نکلوائی گئی رقم
             </label>
             <input
               type="number"
               value={formData.amountWithdrawn}
               onChange={(e) => setFormData({ ...formData, amountWithdrawn: e.target.value })}
               className="input-field"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              حوالہ شخص
+            </label>
+            <input
+              type="text"
+              value={formData.referencePerson}
+              onChange={(e) => setFormData({ ...formData, referencePerson: e.target.value })}
+              className="input-field"
+              placeholder="Enter reference person name"
             />
           </div>
           <div className="flex gap-3 pt-4">
