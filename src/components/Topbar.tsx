@@ -156,7 +156,6 @@ const Topbar = ({ title, breadcrumbs }: TopbarProps) => {
             </div>
           </div>
         )}
-        </div>
       </div>
     </header>
   );
