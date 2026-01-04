@@ -155,7 +155,7 @@ const Special = () => {
     // Create table
     autoTable(doc, {
       startY: 38,
-      head: [['USER NAME', 'DATE', 'BALANCE TYPE', 'NAME RUPEES', 'SUBMITTED RUPEES', 'REFERENCE PERSON', 'BALANCE']],
+      head: [['صارف کا نام', 'تاریخ', 'حساب کی قسم', 'رقم بھیجی گئی', 'جمع شدہ رقم', 'حوالہ شخص', 'بقیہ رقم']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -328,11 +328,11 @@ const Special = () => {
 
   // Table column definitions
   const columns: Column<SpecialEntry>[] = [
-    { key: 'userName', header: 'User Name' },
-    { key: 'date', header: 'Date' },
+    { key: 'userName', header: 'صارف کا نام' },
+    { key: 'date', header: 'تاریخ' },
     {
       key: 'balanceType',
-      header: 'Balance Type',
+      header: 'حساب کی قسم',
       render: (row: SpecialEntry) => (
         <span
           className={`px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -347,22 +347,22 @@ const Special = () => {
     },
     {
       key: 'nameRupees',
-      header: 'Name Rupees',
+      header: 'رقم بھیجی گئی',
       render: (row: SpecialEntry) => formatNumber(row.nameRupees) + ' PKR',
     },
     {
       key: 'submittedRupees',
-      header: 'Submitted Rupees',
+      header: 'جمع شدہ رقم',
       render: (row: SpecialEntry) => formatNumber(row.submittedRupees) + ' PKR',
     },
     {
       key: 'referencePerson',
-      header: 'Reference Person',
+      header: 'حوالہ شخص',
       render: (row: SpecialEntry) => (row as any).referencePerson || '-',
     },
     {
       key: 'balance',
-      header: 'Balance',
+      header: 'بقیہ رقم',
       render: (row: SpecialEntry & { balance?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
         const balance = row.balance !== undefined 
@@ -373,7 +373,7 @@ const Special = () => {
     },
     {
       key: 'action',
-      header: 'Action',
+      header: 'عمل',
       render: (row: SpecialEntry) => (
         <div className="flex items-center gap-2">
           <button
@@ -506,7 +506,7 @@ const Special = () => {
             {/* User Name */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                User Name <span className="text-destructive">*</span>
+                صارف کا نام <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -527,7 +527,7 @@ const Special = () => {
             {/* Date */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Date <span className="text-destructive">*</span>
+                تاریخ <span className="text-destructive">*</span>
               </label>
               <input
                 type="date"
@@ -547,7 +547,7 @@ const Special = () => {
             {/* Balance Type */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Balance Type <span className="text-destructive">*</span>
+                حساب کی قسم <span className="text-destructive">*</span>
               </label>
               <select
                 value={addFormData.balanceType}
@@ -564,7 +564,7 @@ const Special = () => {
             {/* Name Rupees */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Name Rupees <span className="text-destructive">*</span>
+                رقم بھیجی گئی <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -586,7 +586,7 @@ const Special = () => {
             {/* Submitted Rupees */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Submitted Rupees <span className="text-destructive">*</span>
+                جمع شدہ رقم <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -608,7 +608,7 @@ const Special = () => {
             {/* Reference Person */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Reference Person
+                حوالہ شخص
               </label>
               <input
                 type="text"
@@ -661,7 +661,7 @@ const Special = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              User Name
+              صارف کا نام
             </label>
             <input
               type="text"
@@ -672,7 +672,7 @@ const Special = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Balance Type
+              حساب کی قسم
             </label>
             <select
               value={formData.balanceType}
@@ -687,7 +687,7 @@ const Special = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Name Rupees
+              رقم بھیجی گئی
             </label>
             <input
               type="number"
@@ -698,7 +698,7 @@ const Special = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Submitted Rupees
+              جمع شدہ رقم
             </label>
             <input
               type="number"
@@ -709,7 +709,7 @@ const Special = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Reference Person
+              حوالہ شخص
             </label>
             <input
               type="text"
