@@ -27,10 +27,10 @@ function Table<T>({
       <table className="w-full">
         <thead className="table-header">
           <tr>
-            {columns.map((column) => (
+            {columns.map((column, colIndex) => (
               <th
                 key={column.key}
-                className={`px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider ${
+                className={`px-4 py-3 text-left text-sm font-semibold text-black uppercase tracking-wider border-l border-border ${
                   column.className || ''
                 }`}
               >
@@ -52,10 +52,10 @@ function Table<T>({
           ) : (
             data.map((row, rowIndex) => (
               <tr key={rowIndex} className="table-row-hover">
-                {columns.map((column) => (
+                {columns.map((column, colIndex) => (
                   <td
                     key={column.key}
-                    className={`px-4 py-3 text-sm text-foreground ${
+                    className={`px-4 py-3 text-sm text-foreground border-l border-border ${
                       column.className || ''
                     }`}
                   >
