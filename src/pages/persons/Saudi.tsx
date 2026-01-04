@@ -573,7 +573,7 @@ const Saudi = () => {
             {/* Date */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Date <span className="text-destructive">*</span>
+                تاریخ <span className="text-destructive">*</span>
               </label>
               <input
                 type="date"
@@ -593,7 +593,7 @@ const Saudi = () => {
             {/* Time */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Time <span className="text-destructive">*</span>
+                وقت <span className="text-destructive">*</span>
               </label>
               <input
                 type="time"
@@ -613,7 +613,7 @@ const Saudi = () => {
             {/* Ref No */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t('saudi.refNo')} <span className="text-destructive">*</span>
+                نام <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -634,7 +634,7 @@ const Saudi = () => {
             {/* PKR Amount */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t('saudi.pkrAmount')} <span className="text-destructive">*</span>
+                آرڈر رقم (PKR) <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -656,7 +656,7 @@ const Saudi = () => {
             {/* Riyal Rate */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t('saudi.riyalRate')} <span className="text-destructive">*</span>
+                ریال ریٹ <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -678,7 +678,7 @@ const Saudi = () => {
             {/* Riyal Amount (Auto-calculated) */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t('saudi.riyalAmount')} <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
+                ریال رقم <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
               </label>
               <input
                 type="text"
@@ -699,7 +699,7 @@ const Saudi = () => {
             {/* Submitted SAR */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t('saudi.submittedSar')} <span className="text-destructive">*</span>
+                جمع شدہ ریال <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -721,7 +721,7 @@ const Saudi = () => {
             {/* Reference 2 */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t('saudi.reference2')}
+                حوالہ
               </label>
               <input
                 type="text"
@@ -772,7 +772,7 @@ const Saudi = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('saudi.pkrAmount')}
+              آرڈر رقم (PKR)
             </label>
             <input
               type="number"
@@ -783,7 +783,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('saudi.riyalRate')}
+              ریال ریٹ
             </label>
             <input
               type="number"
@@ -795,7 +795,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('saudi.riyalAmount')} <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
+              ریال رقم <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
             </label>
             <input
               type="text"
@@ -814,7 +814,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('saudi.submittedSar')}
+              جمع شدہ ریال
             </label>
             <input
               type="number"
@@ -825,7 +825,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('saudi.reference2')}
+              حوالہ
             </label>
             <input
               type="text"
