@@ -216,7 +216,7 @@ const BankLedger = () => {
       
       return [
         entry.date,
-        entry.referenceType === 'Online' ? 'آن لائن' : 'نقد',
+        entry.referenceType,
         formatNumber(entry.amountAdded || 0) + ' PKR',
         formatNumber(entry.amountWithdrawn || 0) + ' PKR',
         formatNumber(remainingAmount) + ' PKR'
@@ -235,7 +235,7 @@ const BankLedger = () => {
     // Create table
     autoTable(doc, {
       startY: 38,
-      head: [['تاریخ', 'حوالہ کی قسم', 'جمع شدہ رقم', 'نکلوائی گئی رقم', 'باقی رقم']],
+      head: [['DATE', 'REFERENCE TYPE', 'AMOUNT ADDED', 'AMOUNT WITHDRAWN', 'REMAINING AMOUNT']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -477,10 +477,10 @@ const BankLedger = () => {
 
   // Table column definitions
   const columns: Column<BankLedgerEntryWithBalance>[] = [
-    { key: 'date', header: 'تاریخ' },
+    { key: 'date', header: 'Date' },
     {
       key: 'referenceType',
-      header: 'حوالہ کی قسم',
+      header: 'Reference Type',
       render: (row: BankLedgerEntryWithBalance) => (
         <span
           className={`px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -489,13 +489,13 @@ const BankLedger = () => {
               : 'bg-warning/10 text-warning'
           }`}
         >
-          {row.referenceType === 'Online' ? 'آن لائن' : 'نقد'}
+          {row.referenceType}
         </span>
       ),
     },
     {
       key: 'amountAdded',
-      header: 'جمع شدہ رقم',
+      header: 'Amount Added',
       render: (row: BankLedgerEntryWithBalance) =>
         row.amountAdded > 0 ? (
           <span className="text-success font-medium">
@@ -507,7 +507,7 @@ const BankLedger = () => {
     },
     {
       key: 'amountWithdrawn',
-      header: 'نکلوائی گئی رقم',
+      header: 'Amount Withdrawn',
       render: (row: BankLedgerEntryWithBalance) =>
         row.amountWithdrawn > 0 ? (
           <span className="text-destructive font-medium">
@@ -519,7 +519,7 @@ const BankLedger = () => {
     },
     {
       key: 'remainingAmount',
-      header: 'باقی رقم',
+      header: 'Remaining Amount',
       render: (row: BankLedgerEntryWithBalance) => {
         // Calculate: Amount Added - Amount Withdrawn = Remaining Amount (for this entry only)
         const remainingAmount = (row.amountAdded || 0) - (row.amountWithdrawn || 0);
@@ -528,7 +528,7 @@ const BankLedger = () => {
     },
     {
       key: 'action',
-      header: 'عمل',
+      header: 'Action',
       render: (row: BankLedgerEntryWithBalance) => (
         <div className="flex items-center gap-2">
           <button
@@ -714,7 +714,7 @@ const BankLedger = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              تاریخ <span className="text-destructive">*</span>
+              Date <span className="text-destructive">*</span>
             </label>
             <input
               type="date"
@@ -733,7 +733,7 @@ const BankLedger = () => {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              حوالہ کی قسم <span className="text-destructive">*</span>
+              Reference Type <span className="text-destructive">*</span>
             </label>
             <select
               value={addFormData.referenceType}
@@ -742,14 +742,14 @@ const BankLedger = () => {
               }
               className="select-field"
             >
-              <option value="Online">آن لائن</option>
-              <option value="Cash">نقد</option>
+              <option value="Online">Online</option>
+              <option value="Cash">Cash</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              جمع شدہ رقم
+              Amount Added
             </label>
             <input
               type="number"
@@ -772,7 +772,7 @@ const BankLedger = () => {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              نکلوائی گئی رقم
+              Amount Withdrawn
             </label>
             <input
               type="number"
@@ -829,7 +829,7 @@ const BankLedger = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              تاریخ
+              Date
             </label>
             <input
               type="date"
@@ -840,7 +840,7 @@ const BankLedger = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              حوالہ کی قسم
+              Reference Type
             </label>
             <select
               value={formData.referenceType}
@@ -849,13 +849,13 @@ const BankLedger = () => {
               }
               className="select-field"
             >
-              <option value="Online">آن لائن</option>
-              <option value="Cash">نقد</option>
+              <option value="Online">Online</option>
+              <option value="Cash">Cash</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              جمع شدہ رقم
+              Amount Added
             </label>
             <input
               type="number"
@@ -866,7 +866,7 @@ const BankLedger = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              نکلوائی گئی رقم
+              Amount Withdrawn
             </label>
             <input
               type="number"
