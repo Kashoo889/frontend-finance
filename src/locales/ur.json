@@ -66,12 +66,12 @@
     "title": "سعودی حساب کتاب",
     "addEntry": "نیا انٹری شامل کریں",
     "editEntry": "انٹری میں ترمیم کریں",
-    "refNo": "حوالہ نمبر",
-    "pkrAmount": "پاکستانی روپے کی رقم",
-    "riyalRate": "ریال کی شرح",
-    "riyalAmount": "ریال کی رقم",
-    "submittedSar": "جمع کروایا گیا SAR",
-    "reference2": "حوالہ 2",
+    "refNo": "نام",
+    "pkrAmount": "آرڈر رقم",
+    "riyalRate": "ریال ریٹ",
+    "riyalAmount": "ریال رقم",
+    "submittedSar": "جمع ریال",
+    "reference2": "حوالہ",
     "remainingBalance": "باقی بیلنس"
   },
   "special": {

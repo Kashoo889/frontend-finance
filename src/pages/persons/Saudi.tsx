@@ -8,12 +8,14 @@ import { saudiAPI } from '@/lib/api';
 import { Edit, Plus, Loader2, Trash2, Search, Download, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Saudi Hisaab Kitaab page
  * Displays transactions with SAR balance calculations
  */
 const Saudi = () => {
+  const { t } = useLanguage();
   const [entries, setEntries] = useState<SaudiEntry[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<SaudiEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -342,22 +344,22 @@ const Saudi = () => {
 
   // Table column definitions
   const columns: Column<SaudiEntry>[] = [
-    { key: 'date', header: 'Date' },
-    { key: 'time', header: 'Time' },
-    { key: 'refNo', header: 'Ref No' },
+    { key: 'date', header: t('common.date') },
+    { key: 'time', header: t('common.time') },
+    { key: 'refNo', header: t('saudi.refNo') },
     {
       key: 'pkrAmount',
-      header: 'PKR Amount',
+      header: t('saudi.pkrAmount'),
       render: (row: SaudiEntry) => formatNumber(row.pkrAmount) + ' PKR',
     },
     {
       key: 'riyalRate',
-      header: 'Riyal Rate',
+      header: t('saudi.riyalRate'),
       render: (row: SaudiEntry) => formatNumber(row.riyalRate),
     },
     {
       key: 'riyalAmount',
-      header: 'Riyal Amount',
+      header: t('saudi.riyalAmount'),
       render: (row: SaudiEntry) => {
         // Use stored riyalAmount from backend, or calculate if not available (for backward compatibility)
         const riyalAmount = (row as any).riyalAmount !== undefined 
@@ -368,13 +370,13 @@ const Saudi = () => {
     },
     {
       key: 'submittedSar',
-      header: 'Submitted SAR',
+      header: t('saudi.submittedSar'),
       render: (row: SaudiEntry) => formatNumber(row.submittedSar) + ' SAR',
     },
-    { key: 'reference2', header: 'Reference 2' },
+    { key: 'reference2', header: t('saudi.reference2') },
     {
       key: 'balance',
-      header: 'Balance (SAR)',
+      header: t('common.balance') + ' (SAR)',
       render: (row: SaudiEntry & { balance?: number; riyalAmount?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
         let balance = row.balance;
@@ -390,7 +392,7 @@ const Saudi = () => {
     },
     {
       key: 'action',
-      header: 'Action',
+      header: t('common.actions'),
       render: (row: SaudiEntry) => (
         <div className="flex items-center gap-2">
           <button
@@ -398,14 +400,14 @@ const Saudi = () => {
             className="btn-primary text-xs py-1.5 px-3"
           >
             <Edit className="w-3.5 h-3.5 mr-1" />
-            Edit
+            {t('common.edit')}
           </button>
           <button
             onClick={() => handleDelete(row)}
             className="btn-outline text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs py-1.5 px-3"
           >
             <Trash2 className="w-3.5 h-3.5 mr-1" />
-            Delete
+            {t('common.delete')}
           </button>
         </div>
       ),
@@ -611,7 +613,7 @@ const Saudi = () => {
             {/* Ref No */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Ref No <span className="text-destructive">*</span>
+                {t('saudi.refNo')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -632,7 +634,7 @@ const Saudi = () => {
             {/* PKR Amount */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                PKR Amount <span className="text-destructive">*</span>
+                {t('saudi.pkrAmount')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -654,7 +656,7 @@ const Saudi = () => {
             {/* Riyal Rate */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Riyal Rate <span className="text-destructive">*</span>
+                {t('saudi.riyalRate')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -676,7 +678,7 @@ const Saudi = () => {
             {/* Riyal Amount (Auto-calculated) */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Riyal Amount <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
+                {t('saudi.riyalAmount')} <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
               </label>
               <input
                 type="text"
@@ -697,7 +699,7 @@ const Saudi = () => {
             {/* Submitted SAR */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Submitted SAR <span className="text-destructive">*</span>
+                {t('saudi.submittedSar')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -719,7 +721,7 @@ const Saudi = () => {
             {/* Reference 2 */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Reference 2
+                {t('saudi.reference2')}
               </label>
               <input
                 type="text"
@@ -770,7 +772,7 @@ const Saudi = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              PKR Amount
+              {t('saudi.pkrAmount')}
             </label>
             <input
               type="number"
@@ -781,7 +783,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Riyal Rate
+              {t('saudi.riyalRate')}
             </label>
             <input
               type="number"
@@ -793,7 +795,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Riyal Amount <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
+              {t('saudi.riyalAmount')} <span className="text-xs text-muted-foreground">(Auto-calculated)</span>
             </label>
             <input
               type="text"
@@ -812,7 +814,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Submitted SAR
+              {t('saudi.submittedSar')}
             </label>
             <input
               type="number"
@@ -823,7 +825,7 @@ const Saudi = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Reference 2
+              {t('saudi.reference2')}
             </label>
             <input
               type="text"
