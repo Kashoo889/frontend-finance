@@ -165,7 +165,7 @@ const Saudi = () => {
       // Create table
       autoTable(doc, {
       startY: 38,
-      head: [['DATE', 'TIME', 'REF NO', 'PKR AMOUNT', 'RIYAL RATE', 'RIYAL AMOUNT', 'SUBMITTED SAR', 'REFERENCE 2', 'BALANCE (SAR)']],
+      head: [['تاریخ', 'وقت', 'نام', 'آرڈر رقم (PKR)', 'ریال ریٹ', 'ریال رقم', 'جمع شدہ ریال', 'حوالہ', 'بقیہ رقم (ریال)']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -344,22 +344,22 @@ const Saudi = () => {
 
   // Table column definitions
   const columns: Column<SaudiEntry>[] = [
-    { key: 'date', header: t('common.date') },
-    { key: 'time', header: t('common.time') },
-    { key: 'refNo', header: t('saudi.refNo') },
+    { key: 'date', header: 'تاریخ' },
+    { key: 'time', header: 'وقت' },
+    { key: 'refNo', header: 'نام' },
     {
       key: 'pkrAmount',
-      header: t('saudi.pkrAmount'),
+      header: 'آرڈر رقم (PKR)',
       render: (row: SaudiEntry) => formatNumber(row.pkrAmount) + ' PKR',
     },
     {
       key: 'riyalRate',
-      header: t('saudi.riyalRate'),
+      header: 'ریال ریٹ',
       render: (row: SaudiEntry) => formatNumber(row.riyalRate),
     },
     {
       key: 'riyalAmount',
-      header: t('saudi.riyalAmount'),
+      header: 'ریال رقم',
       render: (row: SaudiEntry) => {
         // Use stored riyalAmount from backend, or calculate if not available (for backward compatibility)
         const riyalAmount = (row as any).riyalAmount !== undefined 
@@ -370,13 +370,13 @@ const Saudi = () => {
     },
     {
       key: 'submittedSar',
-      header: t('saudi.submittedSar'),
+      header: 'جمع شدہ ریال',
       render: (row: SaudiEntry) => formatNumber(row.submittedSar) + ' SAR',
     },
-    { key: 'reference2', header: t('saudi.reference2') },
+    { key: 'reference2', header: 'حوالہ' },
     {
       key: 'balance',
-      header: t('common.balance') + ' (SAR)',
+      header: 'بقیہ رقم (ریال)',
       render: (row: SaudiEntry & { balance?: number; riyalAmount?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
         let balance = row.balance;
@@ -392,7 +392,7 @@ const Saudi = () => {
     },
     {
       key: 'action',
-      header: t('common.actions'),
+      header: 'عمل',
       render: (row: SaudiEntry) => (
         <div className="flex items-center gap-2">
           <button
