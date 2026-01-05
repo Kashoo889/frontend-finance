@@ -138,34 +138,32 @@ const Saudi = () => {
       
       return [
         entry.date,
-        entry.time,
         entry.refNo || '-',
         formatNumber(entry.pkrAmount) + ' PKR',
-        entry.riyalRate.toFixed(2),
         formatNumber(riyalAmount) + ' SAR',
         formatNumber(entry.submittedSar) + ' SAR',
         entry.reference2 || '-',
-        formatNumber(balance) + ' SAR'
+        formatNumber(balance) + ' SAR',
+        entry.riyalRate.toFixed(2)
       ];
     });
 
     // Add summary totals row
     tableData.push([
       '',
-      '',
       'TOTALS',
       formatNumber(totalPKR) + ' PKR',
-      '',
       formatNumber(totalRiyal) + ' SAR',
       formatNumber(totalSubmittedSAR) + ' SAR',
       '',
-      formatNumber(totalRiyal - totalSubmittedSAR) + ' SAR'
+      formatNumber(totalRiyal - totalSubmittedSAR) + ' SAR',
+      ''
     ]);
 
       // Create table
       autoTable(doc, {
       startY: 38,
-      head: [['تاریخ', 'وقت', 'نام', 'آرڈر رقم (PKR)', 'ریال ریٹ', 'ریال رقم', 'جمع شدہ ریال', 'حوالہ', 'بقیہ رقم (ریال)']],
+      head: [['تاریخ', 'نام', 'روپے آرڈر', 'ریال آرڈر', 'جمع ریال', 'حوالہ', 'بیلنس', 'ریال ریٹ']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -183,14 +181,13 @@ const Saudi = () => {
       },
       columnStyles: {
         0: { cellWidth: 25 }, // DATE
-        1: { cellWidth: 20 }, // TIME
-        2: { cellWidth: 25 }, // REF NO
-        3: { cellWidth: 35 }, // PKR AMOUNT
-        4: { cellWidth: 25 }, // RIYAL RATE
-        5: { cellWidth: 35 }, // RIYAL AMOUNT
-        6: { cellWidth: 35 }, // SUBMITTED SAR
-        7: { cellWidth: 30 }, // REFERENCE 2
-        8: { cellWidth: 35 }  // BALANCE
+        1: { cellWidth: 25 }, // NAME
+        2: { cellWidth: 35 }, // PKR ORDER
+        3: { cellWidth: 35 }, // RIYAL ORDER
+        4: { cellWidth: 35 }, // SUBMITTED SAR
+        5: { cellWidth: 30 }, // REFERENCE
+        6: { cellWidth: 35 }, // BALANCE
+        7: { cellWidth: 25 }  // RIYAL RATE
       },
       styles: {
         overflow: 'linebreak',
@@ -345,21 +342,15 @@ const Saudi = () => {
   // Table column definitions
   const columns: Column<SaudiEntry>[] = [
     { key: 'date', header: 'تاریخ' },
-    { key: 'time', header: 'وقت' },
     { key: 'refNo', header: 'نام' },
     {
       key: 'pkrAmount',
-      header: 'آرڈر رقم (PKR)',
+      header: 'روپے آرڈر',
       render: (row: SaudiEntry) => formatNumber(row.pkrAmount) + ' PKR',
     },
     {
-      key: 'riyalRate',
-      header: 'ریال ریٹ',
-      render: (row: SaudiEntry) => formatNumber(row.riyalRate),
-    },
-    {
       key: 'riyalAmount',
-      header: 'ریال رقم',
+      header: 'ریال آرڈر',
       render: (row: SaudiEntry) => {
         // Use stored riyalAmount from backend, or calculate if not available (for backward compatibility)
         const riyalAmount = (row as any).riyalAmount !== undefined 
@@ -370,13 +361,13 @@ const Saudi = () => {
     },
     {
       key: 'submittedSar',
-      header: 'جمع شدہ ریال',
+      header: 'جمع ریال',
       render: (row: SaudiEntry) => formatNumber(row.submittedSar) + ' SAR',
     },
     { key: 'reference2', header: 'حوالہ' },
     {
       key: 'balance',
-      header: 'بقیہ رقم (ریال)',
+      header: 'بیلنس',
       render: (row: SaudiEntry & { balance?: number; riyalAmount?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
         let balance = row.balance;
@@ -389,6 +380,11 @@ const Saudi = () => {
         }
         return <BalanceDisplay amount={balance} currency="SAR" />;
       },
+    },
+    {
+      key: 'riyalRate',
+      header: 'ریال ریٹ',
+      render: (row: SaudiEntry) => formatNumber(row.riyalRate),
     },
     {
       key: 'action',

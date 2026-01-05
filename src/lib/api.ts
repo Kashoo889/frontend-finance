@@ -253,6 +253,7 @@ export const bankLedgerAPI = {
       referenceType: 'Online' | 'Cash';
       amountAdded?: number;
       amountWithdrawn?: number;
+      referencePerson?: string;
     }
   ) => {
     const data = await apiRequest(`/traders/${traderId}/banks/${bankId}/ledger`, {
@@ -271,6 +272,7 @@ export const bankLedgerAPI = {
       referenceType?: 'Online' | 'Cash';
       amountAdded?: number;
       amountWithdrawn?: number;
+      referencePerson?: string;
     }
   ) => {
     const data = await apiRequest(`/traders/${traderId}/banks/${bankId}/ledger/${entryId}`, {

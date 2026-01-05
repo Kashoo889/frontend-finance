@@ -176,8 +176,12 @@
     @apply bg-muted/50 sticky top-0 z-10;
   }
 
+  .table-header tr {
+    @apply border-b-2 border-border;
+  }
+
   .table-row-hover {
-    @apply transition-colors hover:bg-muted/30;
+    @apply transition-colors hover:bg-muted/30 border-b border-border;
   }
 
   .card-interactive {
