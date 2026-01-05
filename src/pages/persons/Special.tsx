@@ -131,9 +131,9 @@ const Special = () => {
         : (entry.nameRupees - entry.submittedRupees);
       
       return [
-        entry.userName || '-',
         entry.date,
-        entry.balanceType,
+        entry.userName || '-',
+        entry.balanceType === 'Online' ? 'آن لائن' : 'نقد',
         formatNumber(entry.nameRupees) + ' PKR',
         formatNumber(entry.submittedRupees) + ' PKR',
         (entry as any).referencePerson || '-',
@@ -144,8 +144,8 @@ const Special = () => {
     // Add summary totals row
     tableData.push([
       '',
-      '',
       'TOTALS',
+      '',
       formatNumber(totalNameRupees) + ' PKR',
       formatNumber(totalSubmittedRupees) + ' PKR',
       '',
@@ -155,7 +155,7 @@ const Special = () => {
     // Create table
     autoTable(doc, {
       startY: 38,
-      head: [['صارف کا نام', 'تاریخ', 'حساب کی قسم', 'رقم بھیجی گئی', 'جمع شدہ رقم', 'حوالہ شخص', 'بقیہ رقم']],
+      head: [['تاریخ', 'نام', 'آن لائن یا نقد', 'روپے موصول', 'روپیہ جمع کرایا', 'حوالہ شخص', 'بقیہ رقم']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -172,8 +172,8 @@ const Special = () => {
         fillColor: [245, 247, 250]
       },
       columnStyles: {
-        0: { cellWidth: 30 }, // USER NAME
-        1: { cellWidth: 25 }, // DATE
+        0: { cellWidth: 25 }, // DATE
+        1: { cellWidth: 30 }, // NAME
         2: { cellWidth: 30 }, // BALANCE TYPE
         3: { cellWidth: 35 }, // NAME RUPEES
         4: { cellWidth: 35 }, // SUBMITTED RUPEES
@@ -328,11 +328,11 @@ const Special = () => {
 
   // Table column definitions
   const columns: Column<SpecialEntry>[] = [
-    { key: 'userName', header: 'صارف کا نام' },
     { key: 'date', header: 'تاریخ' },
+    { key: 'userName', header: 'نام' },
     {
       key: 'balanceType',
-      header: 'حساب کی قسم',
+      header: 'آن لائن یا نقد',
       render: (row: SpecialEntry) => (
         <span
           className={`px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -341,18 +341,18 @@ const Special = () => {
               : 'bg-warning/10 text-warning'
           }`}
         >
-          {row.balanceType}
+          {row.balanceType === 'Online' ? 'آن لائن' : 'نقد'}
         </span>
       ),
     },
     {
       key: 'nameRupees',
-      header: 'رقم بھیجی گئی',
+      header: 'روپے موصول',
       render: (row: SpecialEntry) => formatNumber(row.nameRupees) + ' PKR',
     },
     {
       key: 'submittedRupees',
-      header: 'جمع شدہ رقم',
+      header: 'روپیہ جمع کرایا',
       render: (row: SpecialEntry) => formatNumber(row.submittedRupees) + ' PKR',
     },
     {
