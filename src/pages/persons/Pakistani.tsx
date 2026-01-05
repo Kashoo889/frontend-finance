@@ -86,7 +86,7 @@ const Pakistani = () => {
 
     const bankCount = traders.find(t => t.id === traderId)?.banks?.length || 0;
     const confirmMessage = bankCount > 0
-      ? `Are you sure you want to delete "${traderName}"?\n\nThis trader has ${bankCount} bank account(s). You must delete all bank accounts first before deleting the trader.\n\nThis action cannot be undone.`
+      ? `Are you sure you want to delete "${traderName}"?\n\nThis will delete the trader along with ${bankCount} bank account(s) and all associated ledger entries.\n\nThis action cannot be undone.`
       : `Are you sure you want to delete "${traderName}"?\n\nThis action cannot be undone.`;
 
     if (!window.confirm(confirmMessage)) {
