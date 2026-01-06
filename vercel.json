@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install --legacy-peer-deps && chmod +x node_modules/.bin/* 2>/dev/null || true",
+  "installCommand": "npm install --legacy-peer-deps",
   "rewrites": [
     {
       "source": "/(.*)",
