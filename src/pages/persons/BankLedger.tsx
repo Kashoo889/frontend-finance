@@ -125,44 +125,29 @@ const BankLedger = () => {
 
         // Fetch ledger entries
         const ledgerData = await bankLedgerAPI.getAll(traderId, bankId);
-        
-        // Normalize entries and calculate total balance (running balance)
-        let totalRunningBalance = 0;
-        const entriesWithBalance = (ledgerData.entries || []).map((entry: any) => {
+
+        // Normalize entries (ensure id and safe numeric fields)
+        const normalizedEntries = (ledgerData.entries || []).map((entry: any) => {
           // Normalize entry (ensure id instead of _id)
           const { _id, ...rest } = entry;
-          const normalizedEntry = {
+          return {
             ...rest,
             id: entry.id || _id?.toString() || '',
             amountAdded: entry.amountAdded || 0,
             amountWithdrawn: entry.amountWithdrawn || 0,
             referencePerson: (entry as any).referencePerson || '',
           };
-          
-          // Calculate running balance for total (cumulative)
-          totalRunningBalance += normalizedEntry.amountAdded - normalizedEntry.amountWithdrawn;
-          
-          return normalizedEntry;
         });
-        
-        // Calculate running balance for each entry
-        // Since entries are newest first, reverse to calculate from oldest to newest, then reverse back
-        const reversedEntries = [...entriesWithBalance].reverse();
-        let cumulativeBalance = 0;
-        const entriesWithRunningBalanceReversed = reversedEntries.map((entry: any) => {
-          const entryBalance = entry.amountAdded - entry.amountWithdrawn;
-          cumulativeBalance += entryBalance;
-          return {
-            ...entry,
-            runningBalance: cumulativeBalance,
-          };
-        });
-        // Reverse back to newest first
-        const entriesWithRunningBalance = entriesWithRunningBalanceReversed.reverse();
 
-        setEntries(entriesWithRunningBalance);
-        setFilteredEntries(entriesWithRunningBalance);
-        setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
+        setEntries(normalizedEntries);
+        setFilteredEntries(normalizedEntries);
+
+        // Net remaining balance = Total Credit - Total Debit
+        const apiRemaining =
+          (ledgerData as any).remainingBalance ??
+          (ledgerData as any).totalBalance ??
+          0;
+        setTotalBalance(apiRemaining);
       } catch (error) {
         console.error('Error fetching bank ledger data:', error);
       } finally {
@@ -173,36 +158,67 @@ const BankLedger = () => {
     fetchData();
   }, [traderId, bankId]);
 
+  // Helper: recompute running balance and totals for a given list of entries
+  const computeRunningAndTotals = (
+    list: BankLedgerEntryWithBalance[]
+  ): {
+    entriesWithRunning: (BankLedgerEntryWithBalance & { runningBalance?: number })[];
+    netBalance: number;
+  } => {
+    // Work on a copy to avoid mutating original array
+    const reversed = [...list].reverse();
+    let cumulative = 0;
+
+    const withRunningReversed = reversed.map((entry) => {
+      const credit = entry.amountAdded || 0;
+      const debit = entry.amountWithdrawn || 0;
+      cumulative += credit - debit;
+      return {
+        ...entry,
+        runningBalance: cumulative,
+      };
+    });
+
+    const withRunning = withRunningReversed.reverse();
+    const netBalance = cumulative;
+
+    return { entriesWithRunning: withRunning, netBalance };
+  };
+
   // Filter entries by date range
   const handleFilter = () => {
     if (!dateFilter.fromDate && !dateFilter.toDate) {
-      setFilteredEntries(entries);
+      const { entriesWithRunning, netBalance } = computeRunningAndTotals(entries);
+      setFilteredEntries(entriesWithRunning);
+      setTotalBalance(netBalance);
       return;
     }
 
-    const filtered = entries.filter((entry) => {
+    const filteredBase = entries.filter((entry) => {
       const entryDate = entry.date || '';
-      
-      // Check if entry date is before fromDate (exclude)
+
       if (dateFilter.fromDate && entryDate && entryDate < dateFilter.fromDate) {
         return false;
       }
-      
-      // Check if entry date is after toDate (exclude)
+
       if (dateFilter.toDate && entryDate && entryDate > dateFilter.toDate) {
         return false;
       }
-      
+
       return true;
     });
 
-    setFilteredEntries(filtered);
+    const { entriesWithRunning, netBalance } = computeRunningAndTotals(filteredBase);
+    setFilteredEntries(entriesWithRunning);
+    setTotalBalance(netBalance);
   };
 
   // Clear filter
   const handleClearFilter = () => {
     setDateFilter({ fromDate: '', toDate: '' });
-    setFilteredEntries(entries);
+    const { entriesWithRunning, netBalance } = computeRunningAndTotals(entries);
+    setFilteredEntries(entriesWithRunning);
+    setTotalBalance(netBalance);
   };
 
   // Generate and download PDF

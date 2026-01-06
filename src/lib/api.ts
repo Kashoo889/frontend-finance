@@ -241,6 +241,9 @@ export const bankLedgerAPI = {
     const entries = data.data || [];
     return {
       entries: entries.map(normalizeEntry),
+      totalCredit: data.totalCredit ?? 0,
+      totalDebit: data.totalDebit ?? 0,
+      remainingBalance: data.remainingBalance ?? (data.totalBalance || 0),
       totalBalance: data.totalBalance || 0,
     };
   },
