@@ -23,55 +23,64 @@ export async function loadUrduFont(doc: jsPDF): Promise<void> {
 
   fontCache.promise = (async () => {
     try {
-      // Use Noto Sans Arabic from jsDelivr CDN (reliable and fast)
-      // This is a subset that supports Arabic/Urdu characters
-      const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf';
+      // Use a reliable CDN source for Noto Sans Arabic TTF file
+      // jsDelivr is the most reliable for direct TTF access
+      const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosansarabic/NotoSansArabic-Regular.ttf';
       
-      // Try alternative CDN if first fails
-      const altFontUrl = 'https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ_sS6tlqHHFlhQ5l3sQWIHPqzCfyGy2XMc2Rg5qM.woff2';
+      console.log('Loading Urdu font from:', fontUrl);
       
       let fontData: ArrayBuffer | null = null;
       
       try {
         const response = await fetch(fontUrl, { 
           mode: 'cors',
-          cache: 'force-cache' 
+          cache: 'default',
         });
-        if (response.ok) {
-          fontData = await response.arrayBuffer();
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-      } catch (e) {
-        console.warn('Primary font CDN failed, trying alternative...');
-        try {
-          const response = await fetch(altFontUrl, { mode: 'cors' });
-          if (response.ok) {
-            fontData = await response.arrayBuffer();
-          }
-        } catch (e2) {
-          throw new Error('Both font CDNs failed');
+        
+        fontData = await response.arrayBuffer();
+        
+        if (!fontData || fontData.byteLength < 10000) { // TTF files should be at least 10KB
+          throw new Error(`Font file too small: ${fontData?.byteLength || 0} bytes`);
         }
+        
+        console.log(`Successfully loaded font: ${(fontData.byteLength / 1024).toFixed(2)} KB`);
+      } catch (error) {
+        console.error('Failed to load font from primary source:', error);
+        throw error;
       }
 
-      if (!fontData) {
-        throw new Error('Failed to fetch font data');
-      }
-
-      // Convert to base64
+      // Convert to base64 using more efficient method
       const bytes = new Uint8Array(fontData);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+      const chunks: string[] = [];
+      const chunkSize = 8192;
+      
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
       }
-      const fontBase64 = btoa(binary);
+      
+      const fontBase64 = btoa(chunks.join(''));
       
       // Add font to jsPDF's virtual file system
-      doc.addFileToVFS('NotoSansArabic-normal.ttf', fontBase64);
-      doc.addFont('NotoSansArabic-normal.ttf', 'NotoSansArabic', 'normal');
+      const fontName = 'NotoSansArabic-normal';
+      doc.addFileToVFS(`${fontName}.ttf`, fontBase64);
+      doc.addFont(`${fontName}.ttf`, 'NotoSansArabic', 'normal');
+      
+      // Verify font was added
+      const fonts = (doc as any).getFontList();
+      if (!fonts || !fonts['NotoSansArabic']) {
+        throw new Error('Font was not properly registered');
+      }
       
       fontCache.loaded = true;
-      console.log('Urdu font loaded successfully');
+      console.log('Urdu font loaded and registered successfully');
     } catch (error) {
       console.error('Error loading Urdu font:', error);
+      console.warn('PDF will continue without custom Urdu font. Text may not render correctly.');
       // Continue without custom font - jsPDF 3.0+ has better Unicode support
       // but Urdu may not render perfectly without the font
       fontCache.loaded = false;

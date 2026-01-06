@@ -103,11 +103,18 @@ const Saudi = () => {
       // Create new PDF document
       const doc = new jsPDF('landscape', 'mm', 'a4');
     
-      // Load Urdu font for proper rendering
+      // Load Urdu font for proper rendering - MUST complete before table generation
       try {
         await loadUrduFont(doc);
+        // Verify font is available
+        const fonts = (doc as any).getFontList?.() || {};
+        if (fonts['NotoSansArabic']) {
+          console.log('Urdu font ready for PDF generation');
+        } else {
+          console.warn('Urdu font not found in font list, will use default');
+        }
       } catch (error) {
-        console.warn('Could not load Urdu font, continuing with default:', error);
+        console.error('Could not load Urdu font, continuing with default:', error);
       }
     
     // Calculate totals
@@ -217,26 +224,29 @@ const Saudi = () => {
       },
       margin: { top: 38, left: 10, right: 10 },
       didParseCell: function (data: any) {
+        // Check if font is available
+        const fonts = (doc as any).getFontList?.() || {};
+        const hasUrduFont = fonts['NotoSansArabic'] || fonts['NotoSansArabic-normal'];
+        
+        // Set font based on content and availability
+        const cellText = String(data.cell.text || '');
+        const isUrduText = containsUrdu(cellText);
+        const isUrduColumn = [0, 5].includes(data.column.index);
+        const isNumericColumn = [2, 3, 4, 6, 7].includes(data.column.index);
+        
+        if (isNumericColumn || (!isUrduText && !isUrduColumn)) {
+          // Use helvetica for numbers and non-Urdu text
+          data.cell.styles.font = 'helvetica';
+        } else if (hasUrduFont && (isUrduText || isUrduColumn)) {
+          // Use Urdu font if available and needed
+          data.cell.styles.font = hasUrduFont ? 'NotoSansArabic' : 'helvetica';
+        }
+        
         // Make totals row bold
         if (data.row.index === tableData.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [240, 240, 240];
           data.cell.styles.textColor = [0, 0, 0];
-          // For totals row, use helvetica for numbers, NotoSansArabic for Urdu label
-          const cellText = String(data.cell.text || '');
-          if (containsUrdu(cellText)) {
-            data.cell.styles.font = 'NotoSansArabic';
-          } else {
-            data.cell.styles.font = 'helvetica';
-          }
-        } else {
-          // For regular cells, ensure proper font based on column
-          const cellText = String(data.cell.text || '');
-          if (containsUrdu(cellText) && [0, 5].includes(data.column.index)) {
-            data.cell.styles.font = 'NotoSansArabic';
-          } else if ([2, 3, 4, 6, 7].includes(data.column.index)) {
-            data.cell.styles.font = 'helvetica';
-          }
         }
       }
     });
