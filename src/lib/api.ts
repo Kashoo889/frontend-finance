@@ -33,8 +33,17 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Network error' }));
-    throw new Error(error.error || 'Request failed');
+    const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+    // Handle validation errors from express-validator
+    if (errorData.errors && Array.isArray(errorData.errors)) {
+      const errorMessages = errorData.errors.map((err: any) => err.msg || err.message).join(', ');
+      throw new Error(errorMessages || errorData.error || 'Request failed');
+    }
+    // Handle duplicate key errors (e.g., refNo already exists)
+    if (errorData.error && errorData.error.includes('already exists')) {
+      throw new Error(errorData.error);
+    }
+    throw new Error(errorData.error || errorData.message || 'Request failed');
   }
 
   return response.json();

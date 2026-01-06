@@ -361,11 +361,11 @@ const Saudi = () => {
       await saudiAPI.create({
         date: addFormData.date,
         time: addFormData.time,
-        refNo: addFormData.refNo.toUpperCase(),
+        refNo: addFormData.refNo.trim().toUpperCase(),
         pkrAmount: parseFloat(addFormData.pkrAmount),
         riyalRate: parseFloat(addFormData.riyalRate),
-        submittedSar: parseFloat(addFormData.submittedSar),
-        reference2: addFormData.reference2,
+        submittedSar: parseFloat(addFormData.submittedSar) || 0,
+        reference2: addFormData.reference2.trim(),
       });
       setIsAddModalOpen(false);
       // Reset form
@@ -380,9 +380,41 @@ const Saudi = () => {
       });
       setAddFormErrors({});
       fetchEntries(); // Refresh table
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating entry:', error);
-      alert('Failed to create entry. Please try again.');
+      const errorMessage = error?.message || 'Failed to create entry. Please try again.';
+      
+      // Check if error contains validation messages
+      if (errorMessage.includes('already exists') || errorMessage.includes('refNo')) {
+        setAddFormErrors({ refNo: 'This reference number already exists. Please use a different one.' });
+      } else if (errorMessage.includes('uppercase') || errorMessage.includes('Reference number')) {
+        setAddFormErrors({ refNo: 'Reference number should be uppercase letters only' });
+      } else if (errorMessage.includes('PKR amount') || errorMessage.includes('pkrAmount')) {
+        setAddFormErrors({ pkrAmount: errorMessage });
+      } else if (errorMessage.includes('Riyal rate') || errorMessage.includes('riyalRate')) {
+        setAddFormErrors({ riyalRate: errorMessage });
+      } else if (errorMessage.includes('Submitted SAR') || errorMessage.includes('submittedSar')) {
+        setAddFormErrors({ submittedSar: errorMessage });
+      } else if (errorMessage.includes('Date') || errorMessage.includes('date')) {
+        setAddFormErrors({ date: errorMessage });
+      } else if (errorMessage.includes('Time') || errorMessage.includes('time')) {
+        setAddFormErrors({ time: errorMessage });
+      } else {
+        // Show general error in alert, but also try to extract field-specific errors
+        const errors: Record<string, string> = {};
+        if (errorMessage.includes('refNo')) errors.refNo = errorMessage;
+        if (errorMessage.includes('pkrAmount')) errors.pkrAmount = errorMessage;
+        if (errorMessage.includes('riyalRate')) errors.riyalRate = errorMessage;
+        if (errorMessage.includes('submittedSar')) errors.submittedSar = errorMessage;
+        if (errorMessage.includes('date')) errors.date = errorMessage;
+        if (errorMessage.includes('time')) errors.time = errorMessage;
+        
+        if (Object.keys(errors).length > 0) {
+          setAddFormErrors(errors);
+        } else {
+          alert(errorMessage);
+        }
+      }
     } finally {
       setIsSaving(false);
     }
