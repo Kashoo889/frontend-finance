@@ -9,11 +9,12 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "npx vite build",
-    "build:dev": "npx vite build --mode development",
+    "postinstall": "chmod +x node_modules/.bin/* 2>/dev/null || true",
+    "build": "npm exec -- vite build",
+    "build:dev": "npm exec -- vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "vercel-build": "npx vite build"
+    "vercel-build": "npm exec -- vite build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
