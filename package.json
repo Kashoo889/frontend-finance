@@ -10,11 +10,11 @@
   "scripts": {
     "dev": "vite",
     "postinstall": "chmod +x node_modules/.bin/* 2>/dev/null || true",
-    "build": "npm exec -- vite build",
-    "build:dev": "npm exec -- vite build --mode development",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "build:dev": "node ./node_modules/vite/bin/vite.js build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "vercel-build": "npm exec -- vite build"
+    "vercel-build": "node ./node_modules/vite/bin/vite.js build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
