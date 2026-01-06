@@ -136,6 +136,7 @@ const BankLedger = () => {
             id: entry.id || _id?.toString() || '',
             amountAdded: entry.amountAdded || 0,
             amountWithdrawn: entry.amountWithdrawn || 0,
+            referencePerson: (entry as any).referencePerson || '',
           };
           
           // Calculate running balance for total (cumulative)
