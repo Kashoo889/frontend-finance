@@ -9,6 +9,7 @@ import { bankLedgerAPI, tradersAPI } from '@/lib/api';
 import { ArrowLeft, Edit, CreditCard, Plus, Loader2, Trash2, Search, Download, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { loadUrduFont, setUrduFont, setEnglishFont, containsUrdu } from '@/utils/pdfFonts';
 
 /**
  * Normalize MongoDB entry (convert _id to id)
@@ -222,7 +223,7 @@ const BankLedger = () => {
   };
 
   // Generate and download PDF
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
       const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
       
@@ -234,18 +235,27 @@ const BankLedger = () => {
       // Create new PDF document
       const doc = new jsPDF('landscape', 'mm', 'a4');
     
+      // Load Urdu font for proper rendering
+      try {
+        await loadUrduFont(doc);
+      } catch (error) {
+        console.warn('Could not load Urdu font, continuing with default:', error);
+      }
+    
     // Calculate totals
     const totalAmountAdded = dataToExport.reduce((sum, entry) => sum + (entry.amountAdded || 0), 0);
     const totalAmountWithdrawn = dataToExport.reduce((sum, entry) => sum + (entry.amountWithdrawn || 0), 0);
     const totalRemaining = totalAmountAdded - totalAmountWithdrawn;
 
-    // Header
+    // Header (English)
     doc.setFontSize(18);
+    setEnglishFont(doc);
     doc.setFont('helvetica', 'bold');
     doc.text(`BANK LEDGER REPORT - ${bank?.name || 'Bank'} - ${trader?.name || 'Trader'}`, 14, 15);
     
-    // Report info
+    // Report info (English)
     doc.setFontSize(10);
+    setEnglishFont(doc);
     doc.setFont('helvetica', 'normal');
     const dateRange = dateFilter.fromDate && dateFilter.toDate 
       ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
@@ -272,10 +282,10 @@ const BankLedger = () => {
       ];
     });
 
-    // Add summary totals row
+    // Add summary totals row (use Urdu label)
     tableData.push([
       '',
-      'TOTALS',
+      'کل',
       formatNumber(totalAmountAdded) + ' PKR',
       formatNumber(totalAmountWithdrawn) + ' PKR',
       '',
@@ -293,10 +303,11 @@ const BankLedger = () => {
         fillColor: [30, 58, 138], // Dark blue
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 10,
+        fontSize: 11,
         halign: 'center',
         valign: 'middle',
-        cellPadding: 4
+        cellPadding: 4,
+        font: 'NotoSansArabic' // Urdu headers
       },
       bodyStyles: {
         fontSize: 9,
@@ -309,13 +320,13 @@ const BankLedger = () => {
         fillColor: [245, 247, 250]
       },
       columnStyles: {
-        0: { halign: 'center' }, // تاریخ (Date)
-        1: { halign: 'center' }, // حوالہ کی قسم (Reference Type)
-        2: { halign: 'right' },  // جمع شدہ رقم (Amount Added)
-        3: { halign: 'right' },  // نکلوائی گئی رقم (Amount Withdrawn)
-        4: { halign: 'center' }, // حوالہ شخص (Reference Person)
-        5: { halign: 'right' },  // باقی رقم (Remaining Amount)
-        6: { halign: 'right' }   // کل بقیہ (Total Balance)
+        0: { halign: 'center', font: 'NotoSansArabic' }, // تاریخ (Date)
+        1: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ کی قسم (Reference Type)
+        2: { halign: 'right', font: 'helvetica' },  // جمع شدہ رقم (Amount Added) - numbers
+        3: { halign: 'right', font: 'helvetica' },  // نکلوائی گئی رقم (Amount Withdrawn) - numbers
+        4: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ شخص (Reference Person)
+        5: { halign: 'right', font: 'helvetica' },  // باقی رقم (Remaining Amount) - numbers
+        6: { halign: 'right', font: 'helvetica' }   // کل بقیہ (Total Balance) - numbers
       },
       styles: {
         overflow: 'linebreak',
@@ -323,7 +334,8 @@ const BankLedger = () => {
         lineWidth: 0.5,
         lineColor: [0, 0, 0],
         textColor: [0, 0, 0],
-        fontSize: 9
+        fontSize: 9,
+        font: 'NotoSansArabic' // Default font for Urdu
       },
       margin: { top: 38, left: 10, right: 10 },
       didParseCell: function (data: any) {
@@ -332,6 +344,21 @@ const BankLedger = () => {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [240, 240, 240];
           data.cell.styles.textColor = [0, 0, 0];
+          // For totals row, use helvetica for numbers, NotoSansArabic for Urdu label
+          const cellText = String(data.cell.text || '');
+          if (containsUrdu(cellText)) {
+            data.cell.styles.font = 'NotoSansArabic';
+          } else {
+            data.cell.styles.font = 'helvetica';
+          }
+        } else {
+          // For regular cells, ensure proper font based on column
+          const cellText = String(data.cell.text || '');
+          if (containsUrdu(cellText) && [0, 1, 4].includes(data.column.index)) {
+            data.cell.styles.font = 'NotoSansArabic';
+          } else if ([2, 3, 5, 6].includes(data.column.index)) {
+            data.cell.styles.font = 'helvetica';
+          }
         }
       }
     });

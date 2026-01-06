@@ -8,6 +8,7 @@ import { saudiAPI } from '@/lib/api';
 import { Edit, Plus, Loader2, Trash2, Search, Download, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { loadUrduFont, setUrduFont, setEnglishFont, containsUrdu } from '@/utils/pdfFonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
@@ -90,7 +91,7 @@ const Saudi = () => {
   };
 
   // Generate and download PDF
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
       const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
       
@@ -102,6 +103,13 @@ const Saudi = () => {
       // Create new PDF document
       const doc = new jsPDF('landscape', 'mm', 'a4');
     
+      // Load Urdu font for proper rendering
+      try {
+        await loadUrduFont(doc);
+      } catch (error) {
+        console.warn('Could not load Urdu font, continuing with default:', error);
+      }
+    
     // Calculate totals
     const totalPKR = dataToExport.reduce((sum, entry) => sum + (entry.pkrAmount || 0), 0);
     const totalRiyal = dataToExport.reduce((sum, entry) => {
@@ -112,13 +120,15 @@ const Saudi = () => {
     }, 0);
     const totalSubmittedSAR = dataToExport.reduce((sum, entry) => sum + (entry.submittedSar || 0), 0);
 
-    // Header
+    // Header (English)
     doc.setFontSize(18);
+    setEnglishFont(doc);
     doc.setFont('helvetica', 'bold');
     doc.text('SAUDI HISAAB KITAAB REPORT', 14, 15);
     
-    // Report info
+    // Report info (English)
     doc.setFontSize(10);
+    setEnglishFont(doc);
     doc.setFont('helvetica', 'normal');
     const dateRange = dateFilter.fromDate && dateFilter.toDate 
       ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
@@ -148,10 +158,10 @@ const Saudi = () => {
       ];
     });
 
-    // Add summary totals row
+    // Add summary totals row (use Urdu label)
     tableData.push([
       '',
-      'TOTALS',
+      'کل',
       formatNumber(totalPKR) + ' PKR',
       formatNumber(totalRiyal) + ' SAR',
       formatNumber(totalSubmittedSAR) + ' SAR',
@@ -160,44 +170,73 @@ const Saudi = () => {
       ''
     ]);
 
-      // Create table
+      // Create table with proper formatting
       autoTable(doc, {
       startY: 38,
       head: [['تاریخ', 'نام', 'روپے آرڈر', 'ریال آرڈر', 'جمع ریال', 'حوالہ', 'بیلنس', 'ریال ریٹ']],
       body: tableData,
-      theme: 'striped',
+      theme: 'grid',
       headStyles: {
         fillColor: [30, 58, 138], // Dark blue
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 9
+        fontSize: 11,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 4,
+        font: 'NotoSansArabic' // Urdu headers
       },
       bodyStyles: {
-        fontSize: 8,
-        textColor: [0, 0, 0]
+        fontSize: 9,
+        textColor: [0, 0, 0],
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 3
       },
       alternateRowStyles: {
         fillColor: [245, 247, 250]
       },
       columnStyles: {
-        0: { cellWidth: 25 }, // DATE
-        1: { cellWidth: 25 }, // NAME
-        2: { cellWidth: 35 }, // PKR ORDER
-        3: { cellWidth: 35 }, // RIYAL ORDER
-        4: { cellWidth: 35 }, // SUBMITTED SAR
-        5: { cellWidth: 30 }, // REFERENCE
-        6: { cellWidth: 35 }, // BALANCE
-        7: { cellWidth: 25 }  // RIYAL RATE
+        0: { halign: 'center', font: 'NotoSansArabic' }, // تاریخ (Date)
+        1: { halign: 'center', font: 'helvetica' }, // نام (Name) - may contain English
+        2: { halign: 'right', font: 'helvetica' },  // روپے آرڈر (PKR Order) - numbers
+        3: { halign: 'right', font: 'helvetica' },  // ریال آرڈر (Riyal Order) - numbers
+        4: { halign: 'right', font: 'helvetica' },  // جمع ریال (Total Riyal) - numbers
+        5: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ (Reference)
+        6: { halign: 'right', font: 'helvetica' },  // بیلنس (Balance) - numbers
+        7: { halign: 'right', font: 'helvetica' }   // ریال ریٹ (Riyal Rate) - numbers
       },
       styles: {
         overflow: 'linebreak',
-        cellPadding: 2
+        cellPadding: 3,
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
+        textColor: [0, 0, 0],
+        fontSize: 9,
+        font: 'NotoSansArabic' // Default font for Urdu
       },
+      margin: { top: 38, left: 10, right: 10 },
       didParseCell: function (data: any) {
         // Make totals row bold
         if (data.row.index === tableData.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [240, 240, 240];
+          data.cell.styles.textColor = [0, 0, 0];
+          // For totals row, use helvetica for numbers, NotoSansArabic for Urdu label
+          const cellText = String(data.cell.text || '');
+          if (containsUrdu(cellText)) {
+            data.cell.styles.font = 'NotoSansArabic';
+          } else {
+            data.cell.styles.font = 'helvetica';
+          }
+        } else {
+          // For regular cells, ensure proper font based on column
+          const cellText = String(data.cell.text || '');
+          if (containsUrdu(cellText) && [0, 5].includes(data.column.index)) {
+            data.cell.styles.font = 'NotoSansArabic';
+          } else if ([2, 3, 4, 6, 7].includes(data.column.index)) {
+            data.cell.styles.font = 'helvetica';
+          }
         }
       }
     });
