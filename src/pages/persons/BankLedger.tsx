@@ -283,42 +283,55 @@ const BankLedger = () => {
       formatNumber(totalRemaining) + ' PKR' // Total balance matches total remaining
     ]);
 
-    // Create table
+    // Create table with proper formatting
     autoTable(doc, {
       startY: 38,
       head: [['تاریخ', 'حوالہ کی قسم', 'جمع شدہ رقم', 'نکلوائی گئی رقم', 'حوالہ شخص', 'باقی رقم', 'کل بقیہ']],
       body: tableData,
-      theme: 'striped',
+      theme: 'grid',
       headStyles: {
         fillColor: [30, 58, 138], // Dark blue
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 9
+        fontSize: 10,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 4
       },
       bodyStyles: {
-        fontSize: 8,
-        textColor: [0, 0, 0]
+        fontSize: 9,
+        textColor: [0, 0, 0],
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 3
       },
       alternateRowStyles: {
         fillColor: [245, 247, 250]
       },
       columnStyles: {
-        0: { cellWidth: 40 }, // DATE
-        1: { cellWidth: 50 }, // REFERENCE TYPE
-        2: { cellWidth: 50 }, // AMOUNT ADDED
-        3: { cellWidth: 50 }, // AMOUNT WITHDRAWN
-        4: { cellWidth: 50 }, // REFERENCE PERSON
-        5: { cellWidth: 50 }  // REMAINING AMOUNT
+        0: { halign: 'center' }, // تاریخ (Date)
+        1: { halign: 'center' }, // حوالہ کی قسم (Reference Type)
+        2: { halign: 'right' },  // جمع شدہ رقم (Amount Added)
+        3: { halign: 'right' },  // نکلوائی گئی رقم (Amount Withdrawn)
+        4: { halign: 'center' }, // حوالہ شخص (Reference Person)
+        5: { halign: 'right' },  // باقی رقم (Remaining Amount)
+        6: { halign: 'right' }   // کل بقیہ (Total Balance)
       },
       styles: {
         overflow: 'linebreak',
-        cellPadding: 2
+        cellPadding: 3,
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
+        textColor: [0, 0, 0],
+        fontSize: 9
       },
+      margin: { top: 38, left: 10, right: 10 },
       didParseCell: function (data: any) {
         // Make totals row bold
         if (data.row.index === tableData.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [240, 240, 240];
+          data.cell.styles.textColor = [0, 0, 0];
         }
       }
     });
