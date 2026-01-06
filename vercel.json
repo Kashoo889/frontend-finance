@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install --legacy-peer-deps --no-audit",
+  "installCommand": "rm -rf node_modules package-lock.json && npm install --legacy-peer-deps --no-audit",
   "rewrites": [
     {
       "source": "/(.*)",
