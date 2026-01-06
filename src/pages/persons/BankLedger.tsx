@@ -144,9 +144,24 @@ const BankLedger = () => {
           
           return normalizedEntry;
         });
+        
+        // Calculate running balance for each entry
+        // Since entries are newest first, reverse to calculate from oldest to newest, then reverse back
+        const reversedEntries = [...entriesWithBalance].reverse();
+        let cumulativeBalance = 0;
+        const entriesWithRunningBalanceReversed = reversedEntries.map((entry: any) => {
+          const entryBalance = entry.amountAdded - entry.amountWithdrawn;
+          cumulativeBalance += entryBalance;
+          return {
+            ...entry,
+            runningBalance: cumulativeBalance,
+          };
+        });
+        // Reverse back to newest first
+        const entriesWithRunningBalance = entriesWithRunningBalanceReversed.reverse();
 
-        setEntries(entriesWithBalance);
-        setFilteredEntries(entriesWithBalance);
+        setEntries(entriesWithRunningBalance);
+        setFilteredEntries(entriesWithRunningBalance);
         setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
       } catch (error) {
         console.error('Error fetching bank ledger data:', error);
@@ -226,6 +241,9 @@ const BankLedger = () => {
     // Prepare table data
     const tableData = dataToExport.map(entry => {
       const remainingAmount = (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
+      const runningBalance = (entry as any).runningBalance !== undefined 
+        ? (entry as any).runningBalance 
+        : 0;
       
       return [
         entry.date,
@@ -233,7 +251,8 @@ const BankLedger = () => {
         formatNumber(entry.amountAdded || 0) + ' PKR',
         formatNumber(entry.amountWithdrawn || 0) + ' PKR',
         (entry as any).referencePerson || '-',
-        formatNumber(remainingAmount) + ' PKR'
+        formatNumber(remainingAmount) + ' PKR',
+        formatNumber(runningBalance) + ' PKR'
       ];
     });
 
@@ -244,13 +263,14 @@ const BankLedger = () => {
       formatNumber(totalAmountAdded) + ' PKR',
       formatNumber(totalAmountWithdrawn) + ' PKR',
       '',
-      formatNumber(totalRemaining) + ' PKR'
+      formatNumber(totalRemaining) + ' PKR',
+      formatNumber(totalRemaining) + ' PKR' // Total balance matches total remaining
     ]);
 
     // Create table
     autoTable(doc, {
       startY: 38,
-      head: [['تاریخ', 'حوالہ کی قسم', 'جمع شدہ رقم', 'نکلوائی گئی رقم', 'حوالہ شخص', 'باقی رقم']],
+      head: [['تاریخ', 'حوالہ کی قسم', 'جمع شدہ رقم', 'نکلوائی گئی رقم', 'حوالہ شخص', 'باقی رقم', 'کل بقیہ']],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -343,10 +363,30 @@ const BankLedger = () => {
       // Calculate total balance (running balance)
       let totalRunningBalance = 0;
       const entriesWithBalance = ledgerData.entries.map((entry: any) => {
-        totalRunningBalance += (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
-        return entry;
+        const normalizedEntry = {
+          ...entry,
+          id: entry.id || entry._id?.toString() || '',
+          amountAdded: entry.amountAdded || 0,
+          amountWithdrawn: entry.amountWithdrawn || 0,
+          referencePerson: (entry as any).referencePerson || '',
+        };
+        totalRunningBalance += normalizedEntry.amountAdded - normalizedEntry.amountWithdrawn;
+        return normalizedEntry;
       });
-      const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
+      
+      // Calculate running balance for each entry (newest first, calculate backwards)
+      let cumulativeBalance = totalRunningBalance;
+      const entriesWithRunningBalance = entriesWithBalance.map((entry: any) => {
+        const entryBalance = entry.amountAdded - entry.amountWithdrawn;
+        const runningBalance = cumulativeBalance;
+        cumulativeBalance -= entryBalance;
+        return {
+          ...entry,
+          runningBalance,
+        };
+      });
+      
+      const updatedEntries = entriesWithRunningBalance as BankLedgerEntryWithBalance[];
       setEntries(updatedEntries);
       // Reapply filter if active, otherwise show all entries
       if (dateFilter.fromDate || dateFilter.toDate) {
@@ -582,6 +622,17 @@ const BankLedger = () => {
         // Calculate: Amount Added - Amount Withdrawn = Remaining Amount (for this entry only)
         const remainingAmount = (row.amountAdded || 0) - (row.amountWithdrawn || 0);
         return <BalanceDisplay amount={remainingAmount} currency="PKR" />;
+      },
+    },
+    {
+      key: 'runningBalance',
+      header: 'کل بقیہ',
+      render: (row: BankLedgerEntryWithBalance & { runningBalance?: number }) => {
+        // Show cumulative running balance (total balance up to this entry)
+        const runningBalance = (row as any).runningBalance !== undefined 
+          ? (row as any).runningBalance 
+          : 0;
+        return <BalanceDisplay amount={runningBalance} currency="PKR" />;
       },
     },
     {
