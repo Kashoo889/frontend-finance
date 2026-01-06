@@ -10,11 +10,11 @@
   "scripts": {
     "dev": "vite",
     "postinstall": "node -e \"const os = require('os'); const fs = require('fs'); const path = require('path'); if (os.platform() !== 'win32') { try { const binDir = path.join(process.cwd(), 'node_modules', '.bin'); if (fs.existsSync(binDir)) { fs.readdirSync(binDir).forEach(file => { try { fs.chmodSync(path.join(binDir, file), 0o755); } catch(e) {} }); } } catch(e) {} }\"",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
+    "build": "npx vite build",
+    "build:dev": "npx vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "vercel-build": "vite build"
+    "vercel-build": "npx vite build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -86,6 +86,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.21"
+    "vite": "5.4.0"
   }
 }
