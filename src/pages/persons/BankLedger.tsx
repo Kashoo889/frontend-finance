@@ -280,7 +280,7 @@ const BankLedger = () => {
       
       return [
         entry.date,
-        entry.referenceType === 'Online' ? 'آن لائن' : 'نقد',
+        entry.referenceType, // Use English directly: 'Online' or 'Cash'
         formatNumber(entry.amountAdded || 0) + ' PKR',
         formatNumber(entry.amountWithdrawn || 0) + ' PKR',
         (entry as any).referencePerson || '-',
