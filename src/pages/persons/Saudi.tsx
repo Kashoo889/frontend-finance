@@ -180,7 +180,7 @@ const Saudi = () => {
         fillColor: [30, 58, 138], // Dark blue
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 11,
+        fontSize: 14,
         halign: 'center',
         valign: 'middle',
         cellPadding: 4,
