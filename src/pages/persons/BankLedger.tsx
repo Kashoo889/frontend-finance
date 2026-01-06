@@ -166,9 +166,18 @@ const BankLedger = () => {
     }
 
     const filtered = entries.filter((entry) => {
-      const entryDate = entry.date;
-      if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
-      if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+      const entryDate = entry.date || '';
+      
+      // Check if entry date is before fromDate (exclude)
+      if (dateFilter.fromDate && entryDate && entryDate < dateFilter.fromDate) {
+        return false;
+      }
+      
+      // Check if entry date is after toDate (exclude)
+      if (dateFilter.toDate && entryDate && entryDate > dateFilter.toDate) {
+        return false;
+      }
+      
       return true;
     });
 
@@ -339,7 +348,18 @@ const BankLedger = () => {
       });
       const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
       setEntries(updatedEntries);
-      setFilteredEntries(updatedEntries);
+      // Reapply filter if active, otherwise show all entries
+      if (dateFilter.fromDate || dateFilter.toDate) {
+        const filtered = updatedEntries.filter((entry) => {
+          const entryDate = entry.date;
+          if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+          if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+          return true;
+        });
+        setFilteredEntries(filtered);
+      } else {
+        setFilteredEntries(updatedEntries);
+      }
       setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
     } catch (error: any) {
       console.error('Error updating entry:', error);
@@ -370,7 +390,18 @@ const BankLedger = () => {
       });
       const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
       setEntries(updatedEntries);
-      setFilteredEntries(updatedEntries);
+      // Reapply filter if active, otherwise show all entries
+      if (dateFilter.fromDate || dateFilter.toDate) {
+        const filtered = updatedEntries.filter((entry) => {
+          const entryDate = entry.date;
+          if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+          if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+          return true;
+        });
+        setFilteredEntries(filtered);
+      } else {
+        setFilteredEntries(updatedEntries);
+      }
       setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
     } catch (error: any) {
       console.error('Error deleting entry:', error);
@@ -431,7 +462,18 @@ const BankLedger = () => {
       });
       const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
       setEntries(updatedEntries);
-      setFilteredEntries(updatedEntries);
+      // Reapply filter if active, otherwise show all entries
+      if (dateFilter.fromDate || dateFilter.toDate) {
+        const filtered = updatedEntries.filter((entry) => {
+          const entryDate = entry.date;
+          if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+          if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+          return true;
+        });
+        setFilteredEntries(filtered);
+      } else {
+        setFilteredEntries(updatedEntries);
+      }
       setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
     } catch (error) {
       console.error('Error creating entry:', error);
@@ -713,7 +755,7 @@ const BankLedger = () => {
             <p className="text-sm text-muted-foreground">Click "Add New Entry" to create your first entry.</p>
           </div>
         ) : (
-          <Table columns={columns} data={filteredEntries.length > 0 ? filteredEntries : entries} />
+          <Table columns={columns} data={(dateFilter.fromDate || dateFilter.toDate) ? filteredEntries : entries} />
         )}
       </main>
 
