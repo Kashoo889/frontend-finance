@@ -293,10 +293,8 @@ const Special = () => {
 
     if (!addFormData.userName.trim()) errors.userName = 'User name is required';
     if (!addFormData.date) errors.date = 'Date is required';
-    if (!addFormData.nameRupees || parseFloat(addFormData.nameRupees) <= 0) {
-      errors.nameRupees = 'Name rupees must be greater than 0';
-    }
-    if (!addFormData.submittedRupees || parseFloat(addFormData.submittedRupees) < 0) {
+    // Allow nameRupees to be empty or 0 - no validation needed
+    if (addFormData.submittedRupees && parseFloat(addFormData.submittedRupees) < 0) {
       errors.submittedRupees = 'Submitted rupees must be 0 or greater';
     }
 
@@ -313,8 +311,8 @@ const Special = () => {
         userName: addFormData.userName.trim(),
         date: addFormData.date,
         balanceType: addFormData.balanceType,
-        nameRupees: parseFloat(addFormData.nameRupees),
-        submittedRupees: parseFloat(addFormData.submittedRupees),
+        nameRupees: addFormData.nameRupees ? parseFloat(addFormData.nameRupees) || 0 : 0,
+        submittedRupees: addFormData.submittedRupees ? parseFloat(addFormData.submittedRupees) || 0 : 0,
         referencePerson: addFormData.referencePerson.trim(),
       });
       setIsAddModalOpen(false);
@@ -575,7 +573,7 @@ const Special = () => {
             {/* Name Rupees */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                روپے موصول <span className="text-destructive">*</span>
+                روپے موصول
               </label>
               <input
                 type="number"
@@ -586,8 +584,7 @@ const Special = () => {
                   setAddFormErrors({ ...addFormErrors, nameRupees: '' });
                 }}
                 className={`input-field ${addFormErrors.nameRupees ? 'border-destructive' : ''}`}
-                placeholder="150000"
-                required
+                placeholder="150000 (optional)"
               />
               {addFormErrors.nameRupees && (
                 <p className="text-sm text-destructive mt-1">{addFormErrors.nameRupees}</p>
