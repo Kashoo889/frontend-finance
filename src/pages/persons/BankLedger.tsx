@@ -289,10 +289,10 @@ const BankLedger = () => {
       ];
     });
 
-    // Add summary totals row (use Urdu label)
+    // Add summary totals row
     tableData.push([
       '',
-      'کل',
+      'TOTALS',
       formatNumber(totalAmountAdded) + ' PKR',
       formatNumber(totalAmountWithdrawn) + ' PKR',
       '',
@@ -303,7 +303,7 @@ const BankLedger = () => {
     // Create table with proper formatting
     autoTable(doc, {
       startY: 38,
-      head: [['تاریخ', 'حوالہ کی قسم', 'جمع شدہ رقم', 'نکلوائی گئی رقم', 'حوالہ شخص', 'باقی رقم', 'کل بقیہ']],
+      head: [['Date', 'Reference Type', 'Amount Added', 'Amount Withdrawn', 'Reference Person', 'Remaining Amount', 'Total Balance']],
       body: tableData,
       theme: 'grid',
       headStyles: {

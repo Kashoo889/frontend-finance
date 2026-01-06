@@ -165,10 +165,10 @@ const Saudi = () => {
       ];
     });
 
-    // Add summary totals row (use Urdu label)
+    // Add summary totals row
     tableData.push([
       '',
-      'کل',
+      'TOTALS',
       formatNumber(totalPKR) + ' PKR',
       formatNumber(totalRiyal) + ' SAR',
       formatNumber(totalSubmittedSAR) + ' SAR',
@@ -180,7 +180,7 @@ const Saudi = () => {
       // Create table with proper formatting
       autoTable(doc, {
       startY: 38,
-      head: [['تاریخ', 'نام', 'روپے آرڈر', 'ریال آرڈر', 'جمع ریال', 'حوالہ', 'بیلنس', 'ریال ریٹ']],
+      head: [['Date', 'Name', 'PKR Order', 'Riyal Order', 'Total Riyal', 'Reference', 'Balance', 'Riyal Rate']],
       body: tableData,
       theme: 'grid',
       headStyles: {
