@@ -133,7 +133,7 @@ const Special = () => {
       return [
         entry.date,
         entry.userName || '-',
-        entry.balanceType === 'Online' ? 'آن لائن' : 'نقد',
+        entry.balanceType, // Use English directly: 'Online' or 'Cash'
         formatNumber(entry.nameRupees) + ' PKR',
         formatNumber(entry.submittedRupees) + ' PKR',
         (entry as any).referencePerson || '-',
@@ -155,35 +155,46 @@ const Special = () => {
     // Create table
     autoTable(doc, {
       startY: 38,
-      head: [['تاریخ', 'نام', 'آن لائن یا نقد', 'روپے موصول', 'روپیہ جمع کرایا', 'حوالہ شخص', 'بقیہ رقم']],
+      head: [['Date', 'Name', 'Online or Cash', 'Rupees Received', 'Rupees Submitted', 'Reference Person', 'Balance']],
       body: tableData,
-      theme: 'striped',
+      theme: 'grid',
       headStyles: {
         fillColor: [30, 58, 138], // Dark blue
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 9
+        fontSize: 11,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 4
       },
       bodyStyles: {
-        fontSize: 8,
-        textColor: [0, 0, 0]
+        fontSize: 9,
+        textColor: [0, 0, 0],
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 3
       },
       alternateRowStyles: {
         fillColor: [245, 247, 250]
       },
       columnStyles: {
-        0: { cellWidth: 25 }, // DATE
-        1: { cellWidth: 30 }, // NAME
-        2: { cellWidth: 30 }, // BALANCE TYPE
-        3: { cellWidth: 35 }, // NAME RUPEES
-        4: { cellWidth: 35 }, // SUBMITTED RUPEES
-        5: { cellWidth: 40 }, // REFERENCE PERSON
-        6: { cellWidth: 35 }  // BALANCE
+        0: { halign: 'center' }, // Date
+        1: { halign: 'center' }, // Name
+        2: { halign: 'center' }, // Online or Cash
+        3: { halign: 'right' },  // Rupees Received
+        4: { halign: 'right' },  // Rupees Submitted
+        5: { halign: 'center' }, // Reference Person
+        6: { halign: 'right' }   // Balance
       },
       styles: {
         overflow: 'linebreak',
-        cellPadding: 2
+        cellPadding: 3,
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
+        textColor: [0, 0, 0],
+        fontSize: 9
       },
+      margin: { top: 38, left: 10, right: 10 },
       didParseCell: function (data: any) {
         // Make totals row bold
         if (data.row.index === tableData.length - 1) {
@@ -506,7 +517,7 @@ const Special = () => {
             {/* User Name */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                صارف کا نام <span className="text-destructive">*</span>
+                نام <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -547,7 +558,7 @@ const Special = () => {
             {/* Balance Type */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                حساب کی قسم <span className="text-destructive">*</span>
+                آن لائن یا نقد <span className="text-destructive">*</span>
               </label>
               <select
                 value={addFormData.balanceType}
@@ -556,15 +567,15 @@ const Special = () => {
                 }
                 className="select-field"
               >
-                <option value="Online">Online</option>
-                <option value="Cash">Cash</option>
+                <option value="Online">آن لائن</option>
+                <option value="Cash">نقد</option>
               </select>
             </div>
 
             {/* Name Rupees */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                رقم بھیجی گئی <span className="text-destructive">*</span>
+                روپے موصول <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -586,7 +597,7 @@ const Special = () => {
             {/* Submitted Rupees */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                جمع شدہ رقم <span className="text-destructive">*</span>
+                روپیہ جمع کرایا <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -661,7 +672,7 @@ const Special = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              صارف کا نام
+              نام
             </label>
             <input
               type="text"
@@ -672,7 +683,7 @@ const Special = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              حساب کی قسم
+              آن لائن یا نقد
             </label>
             <select
               value={formData.balanceType}
@@ -681,13 +692,13 @@ const Special = () => {
               }
               className="select-field"
             >
-              <option value="Online">Online</option>
-              <option value="Cash">Cash</option>
+              <option value="Online">آن لائن</option>
+              <option value="Cash">نقد</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              رقم بھیجی گئی
+              روپے موصول
             </label>
             <input
               type="number"
@@ -698,7 +709,7 @@ const Special = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              جمع شدہ رقم
+              روپیہ جمع کرایا
             </label>
             <input
               type="number"
