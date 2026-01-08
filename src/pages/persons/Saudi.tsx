@@ -102,24 +102,42 @@ const Saudi = () => {
   };
 
   /**
-   * Calculate running balances for a list of entries
-   * Sorts by date (ascending) and computes cumulative balance
+   * Calculate running balances for entries
+   * 
+   * IMPORTANT: Running balance is ALWAYS calculated in chronological order (date ascending),
+   * regardless of how the table is displayed/sorted.
+   * 
+   * Formula for each entry:
+   *   Riyal Amount = PKR Amount ÷ Riyal Rate
+   *   Net Change = Riyal Amount - Submitted SAR
+   *   Running Balance = Previous Running Balance + Net Change
+   * 
+   * The TOTAL balance (last chronological entry) will always equal:
+   *   Total = Σ(PKR/Rate) - Σ(Submitted SAR)
+   * 
+   * This total is independent of sorting/display order.
    */
   const calculateRunningBalances = (data: SaudiEntry[]): SaudiEntryWithBalance[] => {
-    // 1. Sort by date ascending to ensure chronological order
+    if (data.length === 0) return [];
+
+    // 1. ALWAYS sort by date ascending (chronological order) for calculation
+    // This ensures running balance represents historical accumulation
     const sortedData = [...data].sort((a, b) => {
-      // Primary sort: Date
-      if (a.date !== b.date) {
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateCompare !== 0) return dateCompare;
+
+      // Secondary sort by time if dates are equal
+      if (a.time && b.time) {
+        return a.time.localeCompare(b.time);
       }
-      // Secondary sort: Time if available (optional but good for precision)
       return 0;
     });
 
     let cumulativeBalance = 0;
 
-    return sortedData.map(entry => {
-      // Calculate Riyal Amount for this entry
+    // 2. Calculate running balance chronologically
+    const result = sortedData.map((entry, index) => {
+      // Calculate Riyal Amount = PKR ÷ Rate
       const riyalAmount = (entry as any).riyalAmount !== undefined
         ? (entry as any).riyalAmount
         : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
@@ -127,7 +145,7 @@ const Saudi = () => {
       // Net change for this entry = Riyal Amount - Submitted SAR
       const netChange = riyalAmount - entry.submittedSar;
 
-      // Update cumulative balance
+      // Accumulate balance
       cumulativeBalance += netChange;
 
       return {
@@ -135,6 +153,29 @@ const Saudi = () => {
         runningBalance: cumulativeBalance
       };
     });
+
+    // Validation: Verify last entry's balance equals expected total
+    if (result.length > 0 && process.env.NODE_ENV === 'development') {
+      const expectedTotal = data.reduce((sum, entry) => {
+        const riyalAmount = (entry as any).riyalAmount !== undefined
+          ? (entry as any).riyalAmount
+          : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+        return sum + (riyalAmount - entry.submittedSar);
+      }, 0);
+
+      const lastBalance = result[result.length - 1].runningBalance || 0;
+      const diff = Math.abs(lastBalance - expectedTotal);
+
+      if (diff > 0.01) { // Allow small floating point difference
+        console.warn('[Saudi] Running balance mismatch:', {
+          lastRunningBalance: lastBalance,
+          expectedTotal: expectedTotal,
+          difference: diff
+        });
+      }
+    }
+
+    return result;
   };
 
   // Recalculate running balances whenever entries change
