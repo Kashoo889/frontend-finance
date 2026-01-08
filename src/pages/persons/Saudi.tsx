@@ -15,6 +15,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
  * Saudi Hisaab Kitaab page
  * Displays transactions with SAR balance calculations
  */
+
+// Extend SaudiEntry to include running balance for display
+interface SaudiEntryWithBalance extends SaudiEntry {
+  runningBalance?: number;
+}
+
 const Saudi = () => {
   const { t } = useLanguage();
   const [entries, setEntries] = useState<SaudiEntry[]>([]);
@@ -90,11 +96,51 @@ const Saudi = () => {
     setFilteredEntries(entries);
   };
 
+  /**
+   * Calculate running balances for a list of entries
+   * Sorts by date (ascending) and computes cumulative balance
+   */
+  const calculateRunningBalances = (data: SaudiEntry[]): SaudiEntryWithBalance[] => {
+    // 1. Sort by date ascending to ensure chronological order
+    const sortedData = [...data].sort((a, b) => {
+      // Primary sort: Date
+      if (a.date !== b.date) {
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      }
+      // Secondary sort: Time if available (optional but good for precision)
+      return 0;
+    });
+
+    let cumulativeBalance = 0;
+
+    return sortedData.map(entry => {
+      // Calculate Riyal Amount for this entry
+      const riyalAmount = (entry as any).riyalAmount !== undefined
+        ? (entry as any).riyalAmount
+        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+
+      // Net change for this entry = Riyal Amount - Submitted SAR
+      const netChange = riyalAmount - entry.submittedSar;
+
+      // Update cumulative balance
+      cumulativeBalance += netChange;
+
+      return {
+        ...entry,
+        runningBalance: cumulativeBalance
+      };
+    });
+  };
+
+  // Compute table data with running balances
+  const tableData = calculateRunningBalances(filteredEntries.length > 0 ? filteredEntries : entries);
+
+
   // Generate and download PDF
   const handleDownloadPDF = async () => {
     try {
       const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
-      
+
       if (dataToExport.length === 0) {
         alert('No data to export');
         return;
@@ -102,7 +148,7 @@ const Saudi = () => {
 
       // Create new PDF document
       const doc = new jsPDF('landscape', 'mm', 'a4');
-    
+
       // Load Urdu font for proper rendering - MUST complete before table generation
       try {
         await loadUrduFont(doc);
@@ -116,140 +162,140 @@ const Saudi = () => {
       } catch (error) {
         console.error('Could not load Urdu font, continuing with default:', error);
       }
-    
-    // Calculate totals
-    const totalPKR = dataToExport.reduce((sum, entry) => sum + (entry.pkrAmount || 0), 0);
-    const totalRiyal = dataToExport.reduce((sum, entry) => {
-      const riyalAmount = (entry as any).riyalAmount !== undefined 
-        ? (entry as any).riyalAmount 
-        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
-      return sum + riyalAmount;
-    }, 0);
-    const totalSubmittedSAR = dataToExport.reduce((sum, entry) => sum + (entry.submittedSar || 0), 0);
 
-    // Header (English)
-    doc.setFontSize(18);
-    setEnglishFont(doc);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SAUDI HISAAB KITAAB REPORT', 14, 15);
-    
-    // Report info (English)
-    doc.setFontSize(10);
-    setEnglishFont(doc);
-    doc.setFont('helvetica', 'normal');
-    const dateRange = dateFilter.fromDate && dateFilter.toDate 
-      ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
-      : 'All Entries';
-    doc.text(`Date Range: ${dateRange}`, 14, 22);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
-    doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+      // Calculate totals
+      const totalPKR = dataToExport.reduce((sum, entry) => sum + (entry.pkrAmount || 0), 0);
+      const totalRiyal = dataToExport.reduce((sum, entry) => {
+        const riyalAmount = (entry as any).riyalAmount !== undefined
+          ? (entry as any).riyalAmount
+          : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+        return sum + riyalAmount;
+      }, 0);
+      const totalSubmittedSAR = dataToExport.reduce((sum, entry) => sum + (entry.submittedSar || 0), 0);
 
-    // Prepare table data
-    const tableData = dataToExport.map(entry => {
-      const riyalAmount = (entry as any).riyalAmount !== undefined 
-        ? (entry as any).riyalAmount 
-        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
-      const balance = entry.balance !== undefined 
-        ? entry.balance 
-        : (riyalAmount - entry.submittedSar);
-      
-      return [
-        entry.date,
-        entry.refNo || '-',
-        formatNumber(entry.pkrAmount) + ' PKR',
-        formatNumber(riyalAmount) + ' SAR',
-        formatNumber(entry.submittedSar) + ' SAR',
-        entry.reference2 || '-',
-        formatNumber(balance) + ' SAR',
-        entry.riyalRate.toFixed(2)
-      ];
-    });
+      // Header (English)
+      doc.setFontSize(18);
+      setEnglishFont(doc);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SAUDI HISAAB KITAAB REPORT', 14, 15);
 
-    // Add summary totals row
-    tableData.push([
-      '',
-      'TOTALS',
-      formatNumber(totalPKR) + ' PKR',
-      formatNumber(totalRiyal) + ' SAR',
-      formatNumber(totalSubmittedSAR) + ' SAR',
-      '',
-      formatNumber(totalRiyal - totalSubmittedSAR) + ' SAR',
-      ''
-    ]);
+      // Report info (English)
+      doc.setFontSize(10);
+      setEnglishFont(doc);
+      doc.setFont('helvetica', 'normal');
+      const dateRange = dateFilter.fromDate && dateFilter.toDate
+        ? `${dateFilter.fromDate} to ${dateFilter.toDate}`
+        : 'All Entries';
+      doc.text(`Date Range: ${dateRange}`, 14, 22);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+      doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+
+      // Prepare table data
+      const tableData = dataToExport.map(entry => {
+        const riyalAmount = (entry as any).riyalAmount !== undefined
+          ? (entry as any).riyalAmount
+          : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+        const balance = entry.balance !== undefined
+          ? entry.balance
+          : (riyalAmount - entry.submittedSar);
+
+        return [
+          entry.date,
+          entry.refNo || '-',
+          formatNumber(entry.pkrAmount) + ' PKR',
+          formatNumber(riyalAmount) + ' SAR',
+          formatNumber(entry.submittedSar) + ' SAR',
+          entry.reference2 || '-',
+          formatNumber(balance) + ' SAR',
+          entry.riyalRate.toFixed(2)
+        ];
+      });
+
+      // Add summary totals row
+      tableData.push([
+        '',
+        'TOTALS',
+        formatNumber(totalPKR) + ' PKR',
+        formatNumber(totalRiyal) + ' SAR',
+        formatNumber(totalSubmittedSAR) + ' SAR',
+        '',
+        formatNumber(totalRiyal - totalSubmittedSAR) + ' SAR',
+        ''
+      ]);
 
       // Create table with proper formatting
       autoTable(doc, {
-      startY: 38,
-      head: [['Date', 'Name', 'PKR Order', 'Riyal Order', 'Total Riyal', 'Reference', 'Balance', 'Riyal Rate']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 58, 138], // Dark blue
-        textColor: 255,
-        fontStyle: 'bold',
-        fontSize: 14,
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 4,
-        font: 'NotoSansArabic' // Urdu headers
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: [0, 0, 0],
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 3
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250]
-      },
-      columnStyles: {
-        0: { halign: 'center', font: 'NotoSansArabic' }, // تاریخ (Date)
-        1: { halign: 'center', font: 'helvetica' }, // نام (Name) - may contain English
-        2: { halign: 'right', font: 'helvetica' },  // روپے آرڈر (PKR Order) - numbers
-        3: { halign: 'right', font: 'helvetica' },  // ریال آرڈر (Riyal Order) - numbers
-        4: { halign: 'right', font: 'helvetica' },  // جمع ریال (Total Riyal) - numbers
-        5: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ (Reference)
-        6: { halign: 'right', font: 'helvetica' },  // بیلنس (Balance) - numbers
-        7: { halign: 'right', font: 'helvetica' }   // ریال ریٹ (Riyal Rate) - numbers
-      },
-      styles: {
-        overflow: 'linebreak',
-        cellPadding: 3,
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0],
-        textColor: [0, 0, 0],
-        fontSize: 9,
-        font: 'NotoSansArabic' // Default font for Urdu
-      },
-      margin: { top: 38, left: 10, right: 10 },
-      didParseCell: function (data: any) {
-        // Check if font is available
-        const fonts = (doc as any).getFontList?.() || {};
-        const hasUrduFont = fonts['NotoSansArabic'] || fonts['NotoSansArabic-normal'];
-        
-        // Set font based on content and availability
-        const cellText = String(data.cell.text || '');
-        const isUrduText = containsUrdu(cellText);
-        const isUrduColumn = [0, 5].includes(data.column.index);
-        const isNumericColumn = [2, 3, 4, 6, 7].includes(data.column.index);
-        
-        if (isNumericColumn || (!isUrduText && !isUrduColumn)) {
-          // Use helvetica for numbers and non-Urdu text
-          data.cell.styles.font = 'helvetica';
-        } else if (hasUrduFont && (isUrduText || isUrduColumn)) {
-          // Use Urdu font if available and needed
-          data.cell.styles.font = hasUrduFont ? 'NotoSansArabic' : 'helvetica';
+        startY: 38,
+        head: [['Date', 'Name', 'PKR Order', 'Riyal Order', 'Total Riyal', 'Reference', 'Balance', 'Riyal Rate']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 58, 138], // Dark blue
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 14,
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: 4,
+          font: 'NotoSansArabic' // Urdu headers
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: [0, 0, 0],
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: 3
+        },
+        alternateRowStyles: {
+          fillColor: [245, 247, 250]
+        },
+        columnStyles: {
+          0: { halign: 'center', font: 'NotoSansArabic' }, // تاریخ (Date)
+          1: { halign: 'center', font: 'helvetica' }, // نام (Name) - may contain English
+          2: { halign: 'right', font: 'helvetica' },  // روپے آرڈر (PKR Order) - numbers
+          3: { halign: 'right', font: 'helvetica' },  // ریال آرڈر (Riyal Order) - numbers
+          4: { halign: 'right', font: 'helvetica' },  // جمع ریال (Total Riyal) - numbers
+          5: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ (Reference)
+          6: { halign: 'right', font: 'helvetica' },  // بیلنس (Balance) - numbers
+          7: { halign: 'right', font: 'helvetica' }   // ریال ریٹ (Riyal Rate) - numbers
+        },
+        styles: {
+          overflow: 'linebreak',
+          cellPadding: 3,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          font: 'NotoSansArabic' // Default font for Urdu
+        },
+        margin: { top: 38, left: 10, right: 10 },
+        didParseCell: function (data: any) {
+          // Check if font is available
+          const fonts = (doc as any).getFontList?.() || {};
+          const hasUrduFont = fonts['NotoSansArabic'] || fonts['NotoSansArabic-normal'];
+
+          // Set font based on content and availability
+          const cellText = String(data.cell.text || '');
+          const isUrduText = containsUrdu(cellText);
+          const isUrduColumn = [0, 5].includes(data.column.index);
+          const isNumericColumn = [2, 3, 4, 6, 7].includes(data.column.index);
+
+          if (isNumericColumn || (!isUrduText && !isUrduColumn)) {
+            // Use helvetica for numbers and non-Urdu text
+            data.cell.styles.font = 'helvetica';
+          } else if (hasUrduFont && (isUrduText || isUrduColumn)) {
+            // Use Urdu font if available and needed
+            data.cell.styles.font = hasUrduFont ? 'NotoSansArabic' : 'helvetica';
+          }
+
+          // Make totals row bold
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+            data.cell.styles.textColor = [0, 0, 0];
+          }
         }
-        
-        // Make totals row bold
-        if (data.row.index === tableData.length - 1) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [240, 240, 240];
-          data.cell.styles.textColor = [0, 0, 0];
-        }
-      }
-    });
+      });
 
       // Footer
       const pageCount = doc.getNumberOfPages();
@@ -267,7 +313,7 @@ const Saudi = () => {
 
       // Generate filename
       const fileName = `Saudi_Hisaab_Kitaab_${dateFilter.fromDate || 'all'}_${dateFilter.toDate || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
+
       // Save PDF
       doc.save(fileName);
     } catch (error) {
@@ -293,7 +339,7 @@ const Saudi = () => {
 
   const handleSave = async () => {
     if (!selectedEntry) return;
-    
+
     setIsSaving(true);
     try {
       await saudiAPI.update(selectedEntry.id, {
@@ -383,7 +429,7 @@ const Saudi = () => {
     } catch (error: any) {
       console.error('Error creating entry:', error);
       const errorMessage = error?.message || 'Failed to create entry. Please try again.';
-      
+
       // Check if error contains validation messages
       if (errorMessage.includes('already exists') || errorMessage.includes('refNo')) {
         setAddFormErrors({ refNo: 'This reference number already exists. Please use a different one.' });
@@ -408,7 +454,7 @@ const Saudi = () => {
         if (errorMessage.includes('submittedSar')) errors.submittedSar = errorMessage;
         if (errorMessage.includes('date')) errors.date = errorMessage;
         if (errorMessage.includes('time')) errors.time = errorMessage;
-        
+
         if (Object.keys(errors).length > 0) {
           setAddFormErrors(errors);
         } else {
@@ -421,21 +467,21 @@ const Saudi = () => {
   };
 
   // Table column definitions
-  const columns: Column<SaudiEntry>[] = [
+  const columns: Column<SaudiEntryWithBalance>[] = [
     { key: 'date', header: 'تاریخ' },
     { key: 'refNo', header: 'نام' },
     {
       key: 'pkrAmount',
       header: 'روپے آرڈر',
-      render: (row: SaudiEntry) => formatNumber(row.pkrAmount) + ' PKR',
+      render: (row: SaudiEntryWithBalance) => formatNumber(row.pkrAmount) + ' PKR',
     },
     {
       key: 'riyalAmount',
       header: 'ریال آرڈر',
-      render: (row: SaudiEntry) => {
+      render: (row: SaudiEntryWithBalance) => {
         // Use stored riyalAmount from backend, or calculate if not available (for backward compatibility)
-        const riyalAmount = (row as any).riyalAmount !== undefined 
-          ? (row as any).riyalAmount 
+        const riyalAmount = (row as any).riyalAmount !== undefined
+          ? (row as any).riyalAmount
           : (row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0);
         return formatNumber(riyalAmount) + ' SAR';
       },
@@ -449,17 +495,24 @@ const Saudi = () => {
     {
       key: 'balance',
       header: 'بیلنس',
-      render: (row: SaudiEntry & { balance?: number; riyalAmount?: number }) => {
+      render: (row: SaudiEntryWithBalance & { balance?: number; riyalAmount?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
         let balance = row.balance;
         if (balance === undefined) {
           // Calculate: RIYAL AMOUNT - SUBMITTED SAR = Balance
-          const riyalAmount = row.riyalAmount !== undefined 
-            ? row.riyalAmount 
+          const riyalAmount = row.riyalAmount !== undefined
+            ? row.riyalAmount
             : (row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0);
           balance = riyalAmount - row.submittedSar;
         }
         return <BalanceDisplay amount={balance} currency="SAR" />;
+      },
+    },
+    {
+      key: 'runningBalance',
+      header: 'کل بقایا',
+      render: (row: SaudiEntryWithBalance) => {
+        return <BalanceDisplay amount={row.runningBalance || 0} currency="SAR" />;
       },
     },
     {
@@ -596,22 +649,22 @@ const Saudi = () => {
                   )} PKR
                 </p>
               </div>
-              
+
               {/* Total Riyal Amount */}
               <div className="bg-muted/50 rounded-lg p-4 border border-border">
                 <p className="text-sm text-muted-foreground mb-1">Total Riyal Amount</p>
                 <p className="text-xl font-bold text-foreground">
                   {formatNumber(
                     (filteredEntries.length > 0 ? filteredEntries : entries).reduce((sum, entry) => {
-                      const riyalAmount = (entry as any).riyalAmount !== undefined 
-                        ? (entry as any).riyalAmount 
+                      const riyalAmount = (entry as any).riyalAmount !== undefined
+                        ? (entry as any).riyalAmount
                         : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
                       return sum + riyalAmount;
                     }, 0)
                   )} SAR
                 </p>
               </div>
-              
+
               {/* Total Submitted SAR */}
               <div className="bg-muted/50 rounded-lg p-4 border border-border">
                 <p className="text-sm text-muted-foreground mb-1">Total Submitted SAR</p>
@@ -631,7 +684,7 @@ const Saudi = () => {
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
         ) : (
-          <Table columns={columns} data={filteredEntries.length > 0 ? filteredEntries : entries} />
+          <Table columns={columns} data={tableData} />
         )}
       </main>
 
