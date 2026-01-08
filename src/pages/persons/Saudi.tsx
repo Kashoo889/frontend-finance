@@ -98,7 +98,8 @@ const Saudi = () => {
   const handleClearFilter = () => {
     setDateFilter({ fromDate: '', toDate: '' });
     setFilteredEntries(entries);
-    setFilteredEntriesWithBalance(entriesWithBalance);
+    // Reverse for display: newest first
+    setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
   };
 
   /**
@@ -192,9 +193,11 @@ const Saudi = () => {
           if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
           return true;
         });
-        setFilteredEntriesWithBalance(filtered);
+        // Reverse for display: newest first
+        setFilteredEntriesWithBalance([...filtered].reverse());
       } else {
-        setFilteredEntriesWithBalance(calculated);
+        // Reverse for display: newest first
+        setFilteredEntriesWithBalance([...calculated].reverse());
       }
     } else {
       setEntriesWithBalance([]);
@@ -205,7 +208,8 @@ const Saudi = () => {
   // Update filter logic to also update filteredEntriesWithBalance
   useEffect(() => {
     if (!dateFilter.fromDate && !dateFilter.toDate) {
-      setFilteredEntriesWithBalance(entriesWithBalance);
+      // Reverse for display: newest first
+      setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
     } else {
       const filtered = entriesWithBalance.filter((entry) => {
         const entryDate = entry.date;
@@ -213,7 +217,8 @@ const Saudi = () => {
         if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
         return true;
       });
-      setFilteredEntriesWithBalance(filtered);
+      // Reverse for display: newest first
+      setFilteredEntriesWithBalance([...filtered].reverse());
     }
   }, [entriesWithBalance, dateFilter]);
 
