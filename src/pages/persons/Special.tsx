@@ -13,9 +13,18 @@ import autoTable from 'jspdf-autotable';
  * Special Hisaab Kitaab page
  * Displays user transactions with balance type dropdown
  */
+
+// Extend SpecialEntry to include running balance for display
+interface SpecialEntryWithBalance extends SpecialEntry {
+  runningBalance?: number;
+}
+
 const Special = () => {
   const [entries, setEntries] = useState<SpecialEntry[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<SpecialEntry[]>([]);
+  // State for entries with calculated running balances
+  const [entriesWithBalance, setEntriesWithBalance] = useState<SpecialEntryWithBalance[]>([]);
+  const [filteredEntriesWithBalance, setFilteredEntriesWithBalance] = useState<SpecialEntryWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -84,13 +93,118 @@ const Special = () => {
   const handleClearFilter = () => {
     setDateFilter({ fromDate: '', toDate: '' });
     setFilteredEntries(entries);
+    // Reverse for display: newest first
+    setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
   };
+
+  /**
+   * Calculate running balances for entries
+   * 
+   * IMPORTANT: Running balance is ALWAYS calculated in chronological order (oldest → newest),
+   * regardless of how the table is displayed/sorted.
+   * 
+   * Formula for each entry:
+   *   Net Change = Name Rupees - Submitted Rupees
+   *   Running Balance = Previous Running Balance + Net Change
+   * 
+   * The TOTAL balance (last chronological entry) will always equal:
+   *   Total = Σ(Name Rupees) - Σ(Submitted Rupees)
+   * 
+   * This total is independent of sorting/display order.
+   */
+  const calculateRunningBalances = (data: SpecialEntry[]): SpecialEntryWithBalance[] => {
+    if (data.length === 0) return [];
+
+    // 1. ALWAYS sort by date ascending (chronological order) for calculation
+    const sortedData = [...data].sort((a, b) => {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    let cumulativeBalance = 0;
+
+    // 2. Calculate running balance chronologically
+    const result = sortedData.map((entry) => {
+      // Net change for this entry = Name Rupees - Submitted Rupees
+      const netChange = (entry.nameRupees || 0) - (entry.submittedRupees || 0);
+
+      // Accumulate balance
+      cumulativeBalance += netChange;
+
+      return {
+        ...entry,
+        runningBalance: cumulativeBalance
+      };
+    });
+
+    // Validation: Verify last entry's balance equals expected total
+    if (result.length > 0 && process.env.NODE_ENV === 'development') {
+      const expectedTotal = data.reduce((sum, entry) => {
+        return sum + ((entry.nameRupees || 0) - (entry.submittedRupees || 0));
+      }, 0);
+
+      const lastBalance = result[result.length - 1].runningBalance || 0;
+      const diff = Math.abs(lastBalance - expectedTotal);
+
+      if (diff > 0.01) {
+        console.warn('[Special] Running balance mismatch:', {
+          lastRunningBalance: lastBalance,
+          expectedTotal: expectedTotal,
+          difference: diff
+        });
+      }
+    }
+
+    return result;
+  };
+
+  // Recalculate running balances whenever entries change
+  useEffect(() => {
+    if (entries.length > 0) {
+      const calculated = calculateRunningBalances(entries);
+      setEntriesWithBalance(calculated);
+
+      // Apply current filter to the calculated entries
+      if (dateFilter.fromDate || dateFilter.toDate) {
+        const filtered = calculated.filter((entry) => {
+          const entryDate = entry.date;
+          if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+          if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+          return true;
+        });
+        // Reverse for display: newest first
+        setFilteredEntriesWithBalance([...filtered].reverse());
+      } else {
+        // Reverse for display: newest first
+        setFilteredEntriesWithBalance([...calculated].reverse());
+      }
+    } else {
+      setEntriesWithBalance([]);
+      setFilteredEntriesWithBalance([]);
+    }
+  }, [entries, dateFilter.fromDate, dateFilter.toDate]);
+
+  // Update filter logic to also update filteredEntriesWithBalance
+  useEffect(() => {
+    if (!dateFilter.fromDate && !dateFilter.toDate) {
+      // Reverse for display: newest first
+      setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
+    } else {
+      const filtered = entriesWithBalance.filter((entry) => {
+        const entryDate = entry.date;
+        if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+        if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+        return true;
+      });
+      // Reverse for display: newest first
+      setFilteredEntriesWithBalance([...filtered].reverse());
+    }
+  }, [entriesWithBalance, dateFilter]);
 
   // Generate and download PDF
   const handleDownloadPDF = () => {
     try {
       const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
-      
+
       if (dataToExport.length === 0) {
         alert('No data to export');
         return;
@@ -98,111 +212,111 @@ const Special = () => {
 
       // Create new PDF document
       const doc = new jsPDF('landscape', 'mm', 'a4');
-    
-    // Calculate totals
-    const totalNameRupees = dataToExport.reduce((sum, entry) => sum + (entry.nameRupees || 0), 0);
-    const totalSubmittedRupees = dataToExport.reduce((sum, entry) => sum + (entry.submittedRupees || 0), 0);
-    const totalBalance = dataToExport.reduce((sum, entry) => {
-      const balance = entry.balance !== undefined 
-        ? entry.balance 
-        : (entry.nameRupees - entry.submittedRupees);
-      return sum + balance;
-    }, 0);
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SPECIAL HISAAB KITAAB REPORT', 14, 15);
-    
-    // Report info
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const dateRange = dateFilter.fromDate && dateFilter.toDate 
-      ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
-      : 'All Entries';
-    doc.text(`Date Range: ${dateRange}`, 14, 22);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
-    doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+      // Calculate totals
+      const totalNameRupees = dataToExport.reduce((sum, entry) => sum + (entry.nameRupees || 0), 0);
+      const totalSubmittedRupees = dataToExport.reduce((sum, entry) => sum + (entry.submittedRupees || 0), 0);
+      const totalBalance = dataToExport.reduce((sum, entry) => {
+        const balance = entry.balance !== undefined
+          ? entry.balance
+          : (entry.nameRupees - entry.submittedRupees);
+        return sum + balance;
+      }, 0);
 
-    // Prepare table data
-    const tableData = dataToExport.map(entry => {
-      const balance = entry.balance !== undefined 
-        ? entry.balance 
-        : (entry.nameRupees - entry.submittedRupees);
-      
-      return [
-        entry.date,
-        entry.userName || '-',
-        entry.balanceType, // Use English directly: 'Online' or 'Cash'
-        formatNumber(entry.nameRupees) + ' PKR',
-        formatNumber(entry.submittedRupees) + ' PKR',
-        (entry as any).referencePerson || '-',
-        formatNumber(balance) + ' PKR'
-      ];
-    });
+      // Header
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SPECIAL HISAAB KITAAB REPORT', 14, 15);
 
-    // Add summary totals row
-    tableData.push([
-      '',
-      'TOTALS',
-      '',
-      formatNumber(totalNameRupees) + ' PKR',
-      formatNumber(totalSubmittedRupees) + ' PKR',
-      '',
-      formatNumber(totalBalance) + ' PKR'
-    ]);
+      // Report info
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const dateRange = dateFilter.fromDate && dateFilter.toDate
+        ? `${dateFilter.fromDate} to ${dateFilter.toDate}`
+        : 'All Entries';
+      doc.text(`Date Range: ${dateRange}`, 14, 22);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+      doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
 
-    // Create table
-    autoTable(doc, {
-      startY: 38,
-      head: [['Date', 'Name', 'Online or Cash', 'Rupees Received', 'Rupees Submitted', 'Reference Person', 'Balance']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 58, 138], // Dark blue
-        textColor: 255,
-        fontStyle: 'bold',
-        fontSize: 11,
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 4
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: [0, 0, 0],
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 3
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250]
-      },
-      columnStyles: {
-        0: { halign: 'center' }, // Date
-        1: { halign: 'center' }, // Name
-        2: { halign: 'center' }, // Online or Cash
-        3: { halign: 'right' },  // Rupees Received
-        4: { halign: 'right' },  // Rupees Submitted
-        5: { halign: 'center' }, // Reference Person
-        6: { halign: 'right' }   // Balance
-      },
-      styles: {
-        overflow: 'linebreak',
-        cellPadding: 3,
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0],
-        textColor: [0, 0, 0],
-        fontSize: 9
-      },
-      margin: { top: 38, left: 10, right: 10 },
-      didParseCell: function (data: any) {
-        // Make totals row bold
-        if (data.row.index === tableData.length - 1) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [240, 240, 240];
+      // Prepare table data
+      const tableData = dataToExport.map(entry => {
+        const balance = entry.balance !== undefined
+          ? entry.balance
+          : (entry.nameRupees - entry.submittedRupees);
+
+        return [
+          entry.date,
+          entry.userName || '-',
+          entry.balanceType, // Use English directly: 'Online' or 'Cash'
+          formatNumber(entry.nameRupees) + ' PKR',
+          formatNumber(entry.submittedRupees) + ' PKR',
+          (entry as any).referencePerson || '-',
+          formatNumber(balance) + ' PKR'
+        ];
+      });
+
+      // Add summary totals row
+      tableData.push([
+        '',
+        'TOTALS',
+        '',
+        formatNumber(totalNameRupees) + ' PKR',
+        formatNumber(totalSubmittedRupees) + ' PKR',
+        '',
+        formatNumber(totalBalance) + ' PKR'
+      ]);
+
+      // Create table
+      autoTable(doc, {
+        startY: 38,
+        head: [['Date', 'Name', 'Online or Cash', 'Rupees Received', 'Rupees Submitted', 'Reference Person', 'Balance']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 58, 138], // Dark blue
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 11,
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: 4
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: [0, 0, 0],
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: 3
+        },
+        alternateRowStyles: {
+          fillColor: [245, 247, 250]
+        },
+        columnStyles: {
+          0: { halign: 'center' }, // Date
+          1: { halign: 'center' }, // Name
+          2: { halign: 'center' }, // Online or Cash
+          3: { halign: 'right' },  // Rupees Received
+          4: { halign: 'right' },  // Rupees Submitted
+          5: { halign: 'center' }, // Reference Person
+          6: { halign: 'right' }   // Balance
+        },
+        styles: {
+          overflow: 'linebreak',
+          cellPadding: 3,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0],
+          textColor: [0, 0, 0],
+          fontSize: 9
+        },
+        margin: { top: 38, left: 10, right: 10 },
+        didParseCell: function (data: any) {
+          // Make totals row bold
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
         }
-      }
-    });
+      });
 
       // Footer
       const pageCount = doc.getNumberOfPages();
@@ -220,7 +334,7 @@ const Special = () => {
 
       // Generate filename
       const fileName = `Special_Hisaab_Kitaab_${dateFilter.fromDate || 'all'}_${dateFilter.toDate || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
+
       // Save PDF
       doc.save(fileName);
     } catch (error) {
@@ -247,7 +361,7 @@ const Special = () => {
 
   const handleSave = async () => {
     if (!selectedEntry) return;
-    
+
     setIsSaving(true);
     try {
       await specialAPI.update(selectedEntry.id, {
@@ -336,19 +450,18 @@ const Special = () => {
   };
 
   // Table column definitions
-  const columns: Column<SpecialEntry>[] = [
+  const columns: Column<SpecialEntryWithBalance>[] = [
     { key: 'date', header: 'تاریخ' },
     { key: 'userName', header: 'نام' },
     {
       key: 'balanceType',
       header: 'آن لائن یا نقد',
-      render: (row: SpecialEntry) => (
+      render: (row: SpecialEntryWithBalance) => (
         <span
-          className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-            row.balanceType === 'Online'
+          className={`px-2.5 py-1 rounded-full text-xs font-medium ${row.balanceType === 'Online'
               ? 'bg-accent/10 text-accent'
               : 'bg-warning/10 text-warning'
-          }`}
+            }`}
         >
           {row.balanceType === 'Online' ? 'آن لائن' : 'نقد'}
         </span>
@@ -357,33 +470,40 @@ const Special = () => {
     {
       key: 'nameRupees',
       header: 'روپے موصول',
-      render: (row: SpecialEntry) => formatNumber(row.nameRupees) + ' PKR',
+      render: (row: SpecialEntryWithBalance) => formatNumber(row.nameRupees) + ' PKR',
     },
     {
       key: 'submittedRupees',
       header: 'روپیہ جمع کرایا',
-      render: (row: SpecialEntry) => formatNumber(row.submittedRupees) + ' PKR',
+      render: (row: SpecialEntryWithBalance) => formatNumber(row.submittedRupees) + ' PKR',
     },
     {
       key: 'referencePerson',
       header: 'حوالہ شخص',
-      render: (row: SpecialEntry) => (row as any).referencePerson || '-',
+      render: (row: SpecialEntryWithBalance) => (row as any).referencePerson || '-',
     },
     {
       key: 'balance',
       header: 'بقیہ رقم',
-      render: (row: SpecialEntry & { balance?: number }) => {
+      render: (row: SpecialEntryWithBalance & { balance?: number }) => {
         // Use backend-calculated balance if available, otherwise calculate client-side
-        const balance = row.balance !== undefined 
-          ? row.balance 
+        const balance = row.balance !== undefined
+          ? row.balance
           : calculateSpecialBalance(row.nameRupees, row.submittedRupees);
         return <BalanceDisplay amount={balance} currency="PKR" />;
       },
     },
     {
+      key: 'runningBalance',
+      header: 'کل بقایا',
+      render: (row: SpecialEntryWithBalance) => {
+        return <BalanceDisplay amount={row.runningBalance || 0} currency="PKR" />;
+      },
+    },
+    {
       key: 'action',
       header: 'عمل',
-      render: (row: SpecialEntry) => (
+      render: (row: SpecialEntryWithBalance) => (
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleEdit(row)}
@@ -496,7 +616,7 @@ const Special = () => {
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
         ) : (
-          <Table columns={columns} data={filteredEntries.length > 0 ? filteredEntries : entries} />
+          <Table columns={columns} data={filteredEntriesWithBalance} />
         )}
       </main>
 
