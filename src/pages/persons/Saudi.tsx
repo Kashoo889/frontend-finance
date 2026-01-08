@@ -25,6 +25,9 @@ const Saudi = () => {
   const { t } = useLanguage();
   const [entries, setEntries] = useState<SaudiEntry[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<SaudiEntry[]>([]);
+  // State for entries with calculated running balances
+  const [entriesWithBalance, setEntriesWithBalance] = useState<SaudiEntryWithBalance[]>([]);
+  const [filteredEntriesWithBalance, setFilteredEntriesWithBalance] = useState<SaudiEntryWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -88,12 +91,14 @@ const Saudi = () => {
     });
 
     setFilteredEntries(filtered);
+    // The useEffect will handle updating filteredEntriesWithBalance
   };
 
   // Clear filter
   const handleClearFilter = () => {
     setDateFilter({ fromDate: '', toDate: '' });
     setFilteredEntries(entries);
+    setFilteredEntriesWithBalance(entriesWithBalance);
   };
 
   /**
@@ -132,8 +137,44 @@ const Saudi = () => {
     });
   };
 
-  // Compute table data with running balances
-  const tableData = calculateRunningBalances(filteredEntries.length > 0 ? filteredEntries : entries);
+  // Recalculate running balances whenever entries change
+  useEffect(() => {
+    if (entries.length > 0) {
+      const calculated = calculateRunningBalances(entries);
+      setEntriesWithBalance(calculated);
+
+      // Apply current filter to the calculated entries
+      if (dateFilter.fromDate || dateFilter.toDate) {
+        const filtered = calculated.filter((entry) => {
+          const entryDate = entry.date;
+          if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+          if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+          return true;
+        });
+        setFilteredEntriesWithBalance(filtered);
+      } else {
+        setFilteredEntriesWithBalance(calculated);
+      }
+    } else {
+      setEntriesWithBalance([]);
+      setFilteredEntriesWithBalance([]);
+    }
+  }, [entries, dateFilter.fromDate, dateFilter.toDate]);
+
+  // Update filter logic to also update filteredEntriesWithBalance
+  useEffect(() => {
+    if (!dateFilter.fromDate && !dateFilter.toDate) {
+      setFilteredEntriesWithBalance(entriesWithBalance);
+    } else {
+      const filtered = entriesWithBalance.filter((entry) => {
+        const entryDate = entry.date;
+        if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
+        if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
+        return true;
+      });
+      setFilteredEntriesWithBalance(filtered);
+    }
+  }, [entriesWithBalance, dateFilter]);
 
 
   // Generate and download PDF
@@ -684,7 +725,7 @@ const Saudi = () => {
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
         ) : (
-          <Table columns={columns} data={tableData} />
+          <Table columns={columns} data={filteredEntriesWithBalance} />
         )}
       </main>
 
