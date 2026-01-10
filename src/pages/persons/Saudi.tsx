@@ -139,22 +139,24 @@ const Saudi = () => {
 
     // 2. Calculate running balance chronologically
     const result = sortedData.map((entry, index) => {
-      // RiyalAmount for display (stored in DB)
+      // RiyalAmount logic: 
+      // 1. If Turn ON (PKR > 0 AND Rate > 0): Use stored value or calculate
+      // 2. If Payment (PKR=0 OR Rate=0): FORCE 0 (Ignore stored value to fix legacy data)
       let riyalAmount: number;
-      if ((entry as any).riyalAmount !== undefined) {
-        riyalAmount = (entry as any).riyalAmount;
+
+      if (entry.pkrAmount > 0 && entry.riyalRate > 0) {
+        if ((entry as any).riyalAmount !== undefined) {
+          riyalAmount = (entry as any).riyalAmount;
+        } else {
+          riyalAmount = entry.pkrAmount / entry.riyalRate;
+        }
       } else {
-        riyalAmount = (entry.pkrAmount > 0 && entry.riyalRate > 0)
-          ? entry.pkrAmount / entry.riyalRate
-          : 0;
+        riyalAmount = 0; // Force 0 for payments/legacy data
       }
 
-      // EffectiveRiyalAmount for balance calculation
-      // If riyalAmount is 0 (not calculated), use submittedSar for calculation
-      const effectiveRiyalAmount = (riyalAmount > 0) ? riyalAmount : entry.submittedSar;
-
-      // Net change for this entry = EffectiveRiyalAmount - SubmittedSAR
-      const netChange = effectiveRiyalAmount - entry.submittedSar;
+      // Net change for this entry = RiyalAmount - SubmittedSAR
+      // If payment only (RiyalAmount=0): 0 - Submitted = -Submitted (Reduces debt)
+      const netChange = riyalAmount - entry.submittedSar;
 
       // Accumulate balance
       cumulativeBalance += netChange;
@@ -176,8 +178,7 @@ const Saudi = () => {
             ? entry.pkrAmount / entry.riyalRate
             : 0;
         }
-        const effectiveRiyalAmount = (riyalAmount > 0) ? riyalAmount : entry.submittedSar;
-        return sum + (effectiveRiyalAmount - entry.submittedSar);
+        return sum + (riyalAmount - entry.submittedSar);
       }, 0);
 
       const lastBalance = result[result.length - 1].runningBalance || 0;
@@ -212,8 +213,8 @@ const Saudi = () => {
         // Reverse for display: newest first
         setFilteredEntriesWithBalance([...filtered].reverse());
       } else {
-        // Reverse for display: newest first
-        setFilteredEntriesWithBalance([...calculated].reverse());
+        // Display in chronological order (Oldest First)
+        setFilteredEntriesWithBalance([...calculated]);
       }
     } else {
       setEntriesWithBalance([]);
@@ -224,8 +225,8 @@ const Saudi = () => {
   // Update filter logic to also update filteredEntriesWithBalance
   useEffect(() => {
     if (!dateFilter.fromDate && !dateFilter.toDate) {
-      // Reverse for display: newest first
-      setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
+      // Display in chronological order (Oldest First)
+      setFilteredEntriesWithBalance([...entriesWithBalance]);
     } else {
       const filtered = entriesWithBalance.filter((entry) => {
         const entryDate = entry.date;
@@ -233,8 +234,8 @@ const Saudi = () => {
         if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
         return true;
       });
-      // Reverse for display: newest first
-      setFilteredEntriesWithBalance([...filtered].reverse());
+      // Display in chronological order (Oldest First)
+      setFilteredEntriesWithBalance([...filtered]);
     }
   }, [entriesWithBalance, dateFilter]);
 
@@ -311,13 +312,12 @@ const Saudi = () => {
             : 0;
         }
 
-        // Balance calculation uses effectiveRiyalAmount
+        // Balance calculation uses standard logic: RiyalAmount - SubmittedSAR
         let balance: number;
         if ((entry as any).balance !== undefined) {
           balance = (entry as any).balance;
         } else {
-          const effectiveRiyalAmount = (riyalAmount > 0) ? riyalAmount : entry.submittedSar;
-          balance = effectiveRiyalAmount - entry.submittedSar;
+          balance = riyalAmount - entry.submittedSar;
         }
 
         return [
@@ -603,15 +603,21 @@ const Saudi = () => {
       key: 'riyalAmount',
       header: 'ریال آرڈر',
       render: (row: SaudiEntryWithBalance) => {
-        // Display riyalAmount as stored (0 if not calculated)
+        // Display logic:
+        // 1. If PKR > 0 AND Rate > 0: Show stored riyalAmount (or calculate)
+        // 2. If PKR = 0 OR Rate = 0: ALWAYS SHOW 0 (ignore stored value to fix legacy data)
         let riyalAmount: number;
-        if ((row as any).riyalAmount !== undefined) {
-          riyalAmount = (row as any).riyalAmount;
+
+        if (row.pkrAmount > 0 && row.riyalRate > 0) {
+          if ((row as any).riyalAmount !== undefined) {
+            riyalAmount = (row as any).riyalAmount;
+          } else {
+            riyalAmount = row.pkrAmount / row.riyalRate;
+          }
         } else {
-          riyalAmount = (row.pkrAmount > 0 && row.riyalRate > 0)
-            ? row.pkrAmount / row.riyalRate
-            : 0; // Show 0, not submittedSar
+          riyalAmount = 0; // Force 0 for legacy data
         }
+
         return formatNumber(riyalAmount) + ' SAR';
       },
     },
@@ -625,23 +631,27 @@ const Saudi = () => {
       key: 'balance',
       header: 'بیلنس',
       render: (row: SaudiEntryWithBalance & { balance?: number; riyalAmount?: number }) => {
-        // Use backend-calculated balance if available, otherwise calculate client-side
-        let balance = row.balance;
-        if (balance === undefined) {
-          // Get riyalAmount (0 if not calculated)
-          let riyalAmount: number;
-          if (row.riyalAmount !== undefined) {
-            riyalAmount = row.riyalAmount;
+        // ALWAYS calculate balance client-side to ensure consistency with new logic
+        // Ignore stored row.balance because it might be outdated (e.g. 0 for payments)
+
+        // Get riyalAmount (0 if not calculated)
+        let riyalAmount: number;
+
+        // Use stored riyalAmount if available (for calculated entries), otherwise 0
+        if (row.pkrAmount > 0 && row.riyalRate > 0) {
+          if ((row as any).riyalAmount !== undefined) {
+            riyalAmount = (row as any).riyalAmount;
           } else {
-            riyalAmount = (row.pkrAmount > 0 && row.riyalRate > 0)
-              ? row.pkrAmount / row.riyalRate
-              : 0;
+            riyalAmount = row.pkrAmount / row.riyalRate;
           }
-          // EffectiveRiyalAmount for balance calculation
-          const effectiveRiyalAmount = (riyalAmount > 0) ? riyalAmount : row.submittedSar;
-          // Balance = EffectiveRiyalAmount - SubmittedSAR
-          balance = effectiveRiyalAmount - row.submittedSar;
+        } else {
+          riyalAmount = 0;
         }
+
+        // Standard Balance = RiyalAmount - SubmittedSAR
+        // If Payment (RiyalAmount=0): 0 - Submitted = -Submitted (Reduces Debt)
+        const balance = riyalAmount - row.submittedSar;
+
         return <BalanceDisplay amount={balance} currency="SAR" />;
       },
     },
