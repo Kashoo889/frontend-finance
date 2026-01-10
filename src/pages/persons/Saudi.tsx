@@ -109,14 +109,12 @@ const Saudi = () => {
    * regardless of how the table is displayed/sorted.
    * 
    * Formula for each entry:
-   *   Riyal Amount = PKR Amount ÷ Riyal Rate
-   *   Net Change = Riyal Amount - Submitted SAR
-   *   Running Balance = Previous Running Balance + Net Change
+   *   RiyalAmount = (PKR > 0 AND Rate > 0) ? (PKR / Rate) : SubmittedSAR
+   *   EntryBalance = RiyalAmount - SubmittedSAR
+   *   RunningBalance = PreviousRunningBalance + EntryBalance
    * 
-   * The TOTAL balance (last chronological entry) will always equal:
-   *   Total = Σ(PKR/Rate) - Σ(Submitted SAR)
-   * 
-   * This total is independent of sorting/display order.
+   * When PKR or Rate is 0, RiyalAmount = SubmittedSAR, so EntryBalance = 0
+   * Running balance only depends on SAR amounts, not PKR or Rate
    */
   const calculateRunningBalances = (data: SaudiEntry[]): SaudiEntryWithBalance[] => {
     if (data.length === 0) return [];
@@ -138,12 +136,21 @@ const Saudi = () => {
 
     // 2. Calculate running balance chronologically
     const result = sortedData.map((entry, index) => {
-      // Calculate Riyal Amount = PKR ÷ Rate
-      const riyalAmount = (entry as any).riyalAmount !== undefined
-        ? (entry as any).riyalAmount
-        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+      // RiyalAmount logic: (PKR > 0 AND Rate > 0) ? (PKR/Rate) : SubmittedSAR
+      let riyalAmount: number;
+      if ((entry as any).riyalAmount !== undefined) {
+        // Use backend-calculated value if available
+        riyalAmount = (entry as any).riyalAmount;
+      } else {
+        // Calculate client-side using same logic as backend
+        if (entry.pkrAmount > 0 && entry.riyalRate > 0) {
+          riyalAmount = entry.pkrAmount / entry.riyalRate;
+        } else {
+          riyalAmount = entry.submittedSar;
+        }
+      }
 
-      // Net change for this entry = Riyal Amount - Submitted SAR
+      // Net change for this entry = RiyalAmount - SubmittedSAR
       const netChange = riyalAmount - entry.submittedSar;
 
       // Accumulate balance
@@ -158,9 +165,14 @@ const Saudi = () => {
     // Validation: Verify last entry's balance equals expected total
     if (result.length > 0 && process.env.NODE_ENV === 'development') {
       const expectedTotal = data.reduce((sum, entry) => {
-        const riyalAmount = (entry as any).riyalAmount !== undefined
-          ? (entry as any).riyalAmount
-          : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+        let riyalAmount: number;
+        if ((entry as any).riyalAmount !== undefined) {
+          riyalAmount = (entry as any).riyalAmount;
+        } else {
+          riyalAmount = (entry.pkrAmount > 0 && entry.riyalRate > 0)
+            ? entry.pkrAmount / entry.riyalRate
+            : entry.submittedSar;
+        }
         return sum + (riyalAmount - entry.submittedSar);
       }, 0);
 
@@ -250,12 +262,18 @@ const Saudi = () => {
         console.error('Could not load Urdu font, continuing with default:', error);
       }
 
-      // Calculate totals
+      // Calculate totals with correct RiyalAmount logic
       const totalPKR = dataToExport.reduce((sum, entry) => sum + (entry.pkrAmount || 0), 0);
       const totalRiyal = dataToExport.reduce((sum, entry) => {
-        const riyalAmount = (entry as any).riyalAmount !== undefined
-          ? (entry as any).riyalAmount
-          : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+        // RiyalAmount logic: (PKR > 0 AND Rate > 0) ? (PKR/Rate) : SubmittedSAR
+        let riyalAmount: number;
+        if ((entry as any).riyalAmount !== undefined) {
+          riyalAmount = (entry as any).riyalAmount;
+        } else {
+          riyalAmount = (entry.pkrAmount > 0 && entry.riyalRate > 0)
+            ? entry.pkrAmount / entry.riyalRate
+            : entry.submittedSar;
+        }
         return sum + riyalAmount;
       }, 0);
       const totalSubmittedSAR = dataToExport.reduce((sum, entry) => sum + (entry.submittedSar || 0), 0);
@@ -279,9 +297,15 @@ const Saudi = () => {
 
       // Prepare table data
       const tableData = dataToExport.map(entry => {
-        const riyalAmount = (entry as any).riyalAmount !== undefined
-          ? (entry as any).riyalAmount
-          : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+        // RiyalAmount logic: (PKR > 0 AND Rate > 0) ? (PKR/Rate) : SubmittedSAR
+        let riyalAmount: number;
+        if ((entry as any).riyalAmount !== undefined) {
+          riyalAmount = (entry as any).riyalAmount;
+        } else {
+          riyalAmount = (entry.pkrAmount > 0 && entry.riyalRate > 0)
+            ? entry.pkrAmount / entry.riyalRate
+            : entry.submittedSar;
+        }
         const balance = entry.balance !== undefined
           ? entry.balance
           : (riyalAmount - entry.submittedSar);
@@ -569,10 +593,15 @@ const Saudi = () => {
       key: 'riyalAmount',
       header: 'ریال آرڈر',
       render: (row: SaudiEntryWithBalance) => {
-        // Use stored riyalAmount from backend, or calculate if not available (for backward compatibility)
-        const riyalAmount = (row as any).riyalAmount !== undefined
-          ? (row as any).riyalAmount
-          : (row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0);
+        // RiyalAmount logic: (PKR > 0 AND Rate > 0) ? (PKR/Rate) : SubmittedSAR
+        let riyalAmount: number;
+        if ((row as any).riyalAmount !== undefined) {
+          riyalAmount = (row as any).riyalAmount;
+        } else {
+          riyalAmount = (row.pkrAmount > 0 && row.riyalRate > 0)
+            ? row.pkrAmount / row.riyalRate
+            : row.submittedSar;
+        }
         return formatNumber(riyalAmount) + ' SAR';
       },
     },
@@ -589,10 +618,16 @@ const Saudi = () => {
         // Use backend-calculated balance if available, otherwise calculate client-side
         let balance = row.balance;
         if (balance === undefined) {
-          // Calculate: RIYAL AMOUNT - SUBMITTED SAR = Balance
-          const riyalAmount = row.riyalAmount !== undefined
-            ? row.riyalAmount
-            : (row.riyalRate > 0 ? row.pkrAmount / row.riyalRate : 0);
+          // RiyalAmount logic: (PKR > 0 AND Rate > 0) ? (PKR/Rate) : SubmittedSAR
+          let riyalAmount: number;
+          if (row.riyalAmount !== undefined) {
+            riyalAmount = row.riyalAmount;
+          } else {
+            riyalAmount = (row.pkrAmount > 0 && row.riyalRate > 0)
+              ? row.pkrAmount / row.riyalRate
+              : row.submittedSar;
+          }
+          // Balance = RiyalAmount - SubmittedSAR
           balance = riyalAmount - row.submittedSar;
         }
         return <BalanceDisplay amount={balance} currency="SAR" />;
@@ -746,9 +781,15 @@ const Saudi = () => {
                 <p className="text-xl font-bold text-foreground">
                   {formatNumber(
                     (filteredEntries.length > 0 ? filteredEntries : entries).reduce((sum, entry) => {
-                      const riyalAmount = (entry as any).riyalAmount !== undefined
-                        ? (entry as any).riyalAmount
-                        : (entry.riyalRate > 0 ? entry.pkrAmount / entry.riyalRate : 0);
+                      // RiyalAmount logic: (PKR > 0 AND Rate > 0) ? (PKR/Rate) : SubmittedSAR
+                      let riyalAmount: number;
+                      if ((entry as any).riyalAmount !== undefined) {
+                        riyalAmount = (entry as any).riyalAmount;
+                      } else {
+                        riyalAmount = (entry.pkrAmount > 0 && entry.riyalRate > 0)
+                          ? entry.pkrAmount / entry.riyalRate
+                          : entry.submittedSar;
+                      }
                       return sum + riyalAmount;
                     }, 0)
                   )} SAR
