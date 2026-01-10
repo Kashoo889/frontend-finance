@@ -472,14 +472,16 @@ const Saudi = () => {
     if (!addFormData.date) errors.date = 'Date is required';
     if (!addFormData.time) errors.time = 'Time is required';
     if (!addFormData.refNo.trim()) errors.refNo = 'Reference number is required';
-    if (!addFormData.pkrAmount || parseFloat(addFormData.pkrAmount) <= 0) {
-      errors.pkrAmount = 'PKR amount must be greater than 0';
+
+    // PKR, Rate, and Submitted Riyal can all be 0 (zero allowed)
+    if (!addFormData.pkrAmount || parseFloat(addFormData.pkrAmount) < 0) {
+      errors.pkrAmount = 'PKR amount must be 0 or greater';
     }
-    if (!addFormData.riyalRate || parseFloat(addFormData.riyalRate) <= 0) {
-      errors.riyalRate = 'Riyal rate must be greater than 0';
+    if (!addFormData.riyalRate || parseFloat(addFormData.riyalRate) < 0) {
+      errors.riyalRate = 'Riyal rate must be 0 or greater';
     }
-    if (!addFormData.submittedSar || parseFloat(addFormData.submittedSar) < 0) {
-      errors.submittedSar = 'Submitted SAR must be 0 or greater';
+    if (addFormData.submittedSar === '' || parseFloat(addFormData.submittedSar) < 0) {
+      errors.submittedSar = 'Submitted Riyal must be 0 or greater';
     }
 
     setAddFormErrors(errors);
@@ -851,19 +853,19 @@ const Saudi = () => {
             {/* PKR Amount */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                آرڈر رقم (PKR) <span className="text-destructive">*</span>
+                آرڈر رقم (PKR) <span className="text-xs text-muted-foreground">(0 allowed)</span>
               </label>
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={addFormData.pkrAmount}
                 onChange={(e) => {
                   setAddFormData({ ...addFormData, pkrAmount: e.target.value });
                   setAddFormErrors({ ...addFormErrors, pkrAmount: '' });
                 }}
                 className={`input-field ${addFormErrors.pkrAmount ? 'border-destructive' : ''}`}
-                placeholder="500000"
-                required
+                placeholder="0"
               />
               {addFormErrors.pkrAmount && (
                 <p className="text-sm text-destructive mt-1">{addFormErrors.pkrAmount}</p>
@@ -873,19 +875,19 @@ const Saudi = () => {
             {/* Riyal Rate */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                ریال ریٹ <span className="text-destructive">*</span>
+                ریال ریٹ <span className="text-xs text-muted-foreground">(0 allowed)</span>
               </label>
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={addFormData.riyalRate}
                 onChange={(e) => {
                   setAddFormData({ ...addFormData, riyalRate: e.target.value });
                   setAddFormErrors({ ...addFormErrors, riyalRate: '' });
                 }}
                 className={`input-field ${addFormErrors.riyalRate ? 'border-destructive' : ''}`}
-                placeholder="75.50"
-                required
+                placeholder="0"
               />
               {addFormErrors.riyalRate && (
                 <p className="text-sm text-destructive mt-1">{addFormErrors.riyalRate}</p>
@@ -900,7 +902,8 @@ const Saudi = () => {
               <input
                 type="text"
                 value={
-                  addFormData.pkrAmount && addFormData.riyalRate && parseFloat(addFormData.riyalRate) > 0
+                  addFormData.pkrAmount && addFormData.riyalRate &&
+                    parseFloat(addFormData.pkrAmount) > 0 && parseFloat(addFormData.riyalRate) > 0
                     ? formatNumber(parseFloat(addFormData.pkrAmount) / parseFloat(addFormData.riyalRate)) + ' SAR'
                     : '0.00 SAR'
                 }
@@ -909,26 +912,26 @@ const Saudi = () => {
                 disabled
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Calculated: PKR Amount ÷ Riyal Rate
+                Calculated: PKR Amount ÷ Riyal Rate (when both &gt; 0)
               </p>
             </div>
 
             {/* Submitted SAR */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                جمع شدہ ریال <span className="text-destructive">*</span>
+                جمع شدہ ریال <span className="text-xs text-muted-foreground">(0 allowed)</span>
               </label>
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={addFormData.submittedSar}
                 onChange={(e) => {
                   setAddFormData({ ...addFormData, submittedSar: e.target.value });
                   setAddFormErrors({ ...addFormErrors, submittedSar: '' });
                 }}
                 className={`input-field ${addFormErrors.submittedSar ? 'border-destructive' : ''}`}
-                placeholder="6000"
-                required
+                placeholder="0"
               />
               {addFormErrors.submittedSar && (
                 <p className="text-sm text-destructive mt-1">{addFormErrors.submittedSar}</p>
