@@ -473,15 +473,16 @@ const Saudi = () => {
     if (!addFormData.time) errors.time = 'Time is required';
     if (!addFormData.refNo.trim()) errors.refNo = 'Reference number is required';
 
-    // PKR, Rate, and Submitted Riyal can all be 0 (zero allowed)
-    if (!addFormData.pkrAmount || parseFloat(addFormData.pkrAmount) < 0) {
-      errors.pkrAmount = 'PKR amount must be 0 or greater';
+    // PKR, Rate, and Submitted Riyal can all be 0 or empty (completely optional)
+    // Only validate if negative
+    if (addFormData.pkrAmount !== '' && parseFloat(addFormData.pkrAmount) < 0) {
+      errors.pkrAmount = 'PKR amount cannot be negative';
     }
-    if (!addFormData.riyalRate || parseFloat(addFormData.riyalRate) < 0) {
-      errors.riyalRate = 'Riyal rate must be 0 or greater';
+    if (addFormData.riyalRate !== '' && parseFloat(addFormData.riyalRate) < 0) {
+      errors.riyalRate = 'Riyal rate cannot be negative';
     }
-    if (addFormData.submittedSar === '' || parseFloat(addFormData.submittedSar) < 0) {
-      errors.submittedSar = 'Submitted Riyal must be 0 or greater';
+    if (addFormData.submittedSar !== '' && parseFloat(addFormData.submittedSar) < 0) {
+      errors.submittedSar = 'Submitted Riyal cannot be negative';
     }
 
     setAddFormErrors(errors);
@@ -497,9 +498,9 @@ const Saudi = () => {
         date: addFormData.date,
         time: addFormData.time,
         refNo: addFormData.refNo.trim().toUpperCase(),
-        pkrAmount: parseFloat(addFormData.pkrAmount),
-        riyalRate: parseFloat(addFormData.riyalRate),
-        submittedSar: parseFloat(addFormData.submittedSar) || 0,
+        pkrAmount: addFormData.pkrAmount === '' ? 0 : parseFloat(addFormData.pkrAmount),
+        riyalRate: addFormData.riyalRate === '' ? 0 : parseFloat(addFormData.riyalRate),
+        submittedSar: addFormData.submittedSar === '' ? 0 : parseFloat(addFormData.submittedSar),
         reference2: addFormData.reference2.trim(),
       });
       setIsAddModalOpen(false);
