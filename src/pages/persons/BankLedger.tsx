@@ -89,7 +89,7 @@ const BankLedger = () => {
 
         // Fetch trader data with banks
         const traderData = await tradersAPI.getOne(traderId);
-        
+
         if (!traderData) {
           setIsLoading(false);
           return;
@@ -114,8 +114,8 @@ const BankLedger = () => {
         // Find bank in trader's banks
         const foundBank = normalizedBanks.find((b: any) => b.id === bankId);
         if (!foundBank) {
-          console.error('Bank not found:', { 
-            bankId, 
+          console.error('Bank not found:', {
+            bankId,
             banks: normalizedBanks.map((b: any) => ({ id: b.id, name: b.name }))
           });
           setIsLoading(false);
@@ -141,7 +141,10 @@ const BankLedger = () => {
         });
 
         setEntries(normalizedEntries);
-        setFilteredEntries(normalizedEntries);
+
+        // COMPUTE RUNNING BALANCE & SORT OLD->NEW
+        const { entriesWithRunning } = computeRunningAndTotals(normalizedEntries);
+        setFilteredEntries(entriesWithRunning);
 
         // Net remaining balance = Total Credit - Total Debit
         const apiRemaining =
@@ -166,11 +169,18 @@ const BankLedger = () => {
     entriesWithRunning: (BankLedgerEntryWithBalance & { runningBalance?: number })[];
     netBalance: number;
   } => {
-    // Work on a copy to avoid mutating original array
-    const reversed = [...list].reverse();
+    // 1. Sort by Date Ascending (Old -> New)
+    // Using string comparison is safer for YYYY-MM-DD format and avoids Invalid Date issues
+    const sorted = [...list].sort((a, b) => {
+      const dateA = a.date ? String(a.date) : '';
+      const dateB = b.date ? String(b.date) : '';
+      return dateA.localeCompare(dateB);
+    });
+
     let cumulative = 0;
 
-    const withRunningReversed = reversed.map((entry) => {
+    // 2. Calculate running balance forward
+    const withRunning = sorted.map((entry) => {
       const credit = entry.amountAdded || 0;
       const debit = entry.amountWithdrawn || 0;
       cumulative += credit - debit;
@@ -180,7 +190,6 @@ const BankLedger = () => {
       };
     });
 
-    const withRunning = withRunningReversed.reverse();
     const netBalance = cumulative;
 
     return { entriesWithRunning: withRunning, netBalance };
@@ -226,7 +235,7 @@ const BankLedger = () => {
   const handleDownloadPDF = async () => {
     try {
       const dataToExport = filteredEntries.length > 0 ? filteredEntries : entries;
-      
+
       if (dataToExport.length === 0) {
         alert('No data to export');
         return;
@@ -234,7 +243,7 @@ const BankLedger = () => {
 
       // Create new PDF document
       const doc = new jsPDF('landscape', 'mm', 'a4');
-    
+
       // Load Urdu font for proper rendering - MUST complete before table generation
       try {
         await loadUrduFont(doc);
@@ -248,130 +257,130 @@ const BankLedger = () => {
       } catch (error) {
         console.error('Could not load Urdu font, continuing with default:', error);
       }
-    
-    // Calculate totals
-    const totalAmountAdded = dataToExport.reduce((sum, entry) => sum + (entry.amountAdded || 0), 0);
-    const totalAmountWithdrawn = dataToExport.reduce((sum, entry) => sum + (entry.amountWithdrawn || 0), 0);
-    const totalRemaining = totalAmountAdded - totalAmountWithdrawn;
 
-    // Header (English)
-    doc.setFontSize(18);
-    setEnglishFont(doc);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`BANK LEDGER REPORT - ${bank?.name || 'Bank'} - ${trader?.name || 'Trader'}`, 14, 15);
-    
-    // Report info (English)
-    doc.setFontSize(10);
-    setEnglishFont(doc);
-    doc.setFont('helvetica', 'normal');
-    const dateRange = dateFilter.fromDate && dateFilter.toDate 
-      ? `${dateFilter.fromDate} to ${dateFilter.toDate}` 
-      : 'All Entries';
-    doc.text(`Date Range: ${dateRange}`, 14, 22);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
-    doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
+      // Calculate totals
+      const totalAmountAdded = dataToExport.reduce((sum, entry) => sum + (entry.amountAdded || 0), 0);
+      const totalAmountWithdrawn = dataToExport.reduce((sum, entry) => sum + (entry.amountWithdrawn || 0), 0);
+      const totalRemaining = totalAmountAdded - totalAmountWithdrawn;
 
-    // Prepare table data
-    const tableData = dataToExport.map(entry => {
-      const remainingAmount = (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
-      const runningBalance = (entry as any).runningBalance !== undefined 
-        ? (entry as any).runningBalance 
-        : 0;
-      
-      return [
-        entry.date,
-        entry.referenceType, // Use English directly: 'Online' or 'Cash'
-        formatNumber(entry.amountAdded || 0) + ' PKR',
-        formatNumber(entry.amountWithdrawn || 0) + ' PKR',
-        (entry as any).referencePerson || '-',
-        formatNumber(remainingAmount) + ' PKR',
-        formatNumber(runningBalance) + ' PKR'
-      ];
-    });
+      // Header (English)
+      doc.setFontSize(18);
+      setEnglishFont(doc);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`BANK LEDGER REPORT - ${bank?.name || 'Bank'} - ${trader?.name || 'Trader'}`, 14, 15);
 
-    // Add summary totals row
-    tableData.push([
-      '',
-      'TOTALS',
-      formatNumber(totalAmountAdded) + ' PKR',
-      formatNumber(totalAmountWithdrawn) + ' PKR',
-      '',
-      formatNumber(totalRemaining) + ' PKR',
-      formatNumber(totalRemaining) + ' PKR' // Total balance matches total remaining
-    ]);
+      // Report info (English)
+      doc.setFontSize(10);
+      setEnglishFont(doc);
+      doc.setFont('helvetica', 'normal');
+      const dateRange = dateFilter.fromDate && dateFilter.toDate
+        ? `${dateFilter.fromDate} to ${dateFilter.toDate}`
+        : 'All Entries';
+      doc.text(`Date Range: ${dateRange}`, 14, 22);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+      doc.text(`Total Entries: ${dataToExport.length}`, 14, 32);
 
-    // Create table with proper formatting
-    autoTable(doc, {
-      startY: 38,
-      head: [['Date', 'Reference Type', 'Amount Added', 'Amount Withdrawn', 'Reference Person', 'Remaining Amount', 'Total Balance']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 58, 138], // Dark blue
-        textColor: 255,
-        fontStyle: 'bold',
-        fontSize: 11,
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 4,
-        font: 'NotoSansArabic' // Urdu headers
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: [0, 0, 0],
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 3
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250]
-      },
-      columnStyles: {
-        0: { halign: 'center', font: 'NotoSansArabic' }, // تاریخ (Date)
-        1: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ کی قسم (Reference Type)
-        2: { halign: 'right', font: 'helvetica' },  // جمع شدہ رقم (Amount Added) - numbers
-        3: { halign: 'right', font: 'helvetica' },  // نکلوائی گئی رقم (Amount Withdrawn) - numbers
-        4: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ شخص (Reference Person)
-        5: { halign: 'right', font: 'helvetica' },  // باقی رقم (Remaining Amount) - numbers
-        6: { halign: 'right', font: 'helvetica' }   // کل بقیہ (Total Balance) - numbers
-      },
-      styles: {
-        overflow: 'linebreak',
-        cellPadding: 3,
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0],
-        textColor: [0, 0, 0],
-        fontSize: 9,
-        font: 'NotoSansArabic' // Default font for Urdu
-      },
-      margin: { top: 38, left: 10, right: 10 },
-      didParseCell: function (data: any) {
-        // Check if font is available
-        const fonts = (doc as any).getFontList?.() || {};
-        const hasUrduFont = fonts['NotoSansArabic'] || fonts['NotoSansArabic-normal'];
-        
-        // Set font based on content and availability
-        const cellText = String(data.cell.text || '');
-        const isUrduText = containsUrdu(cellText);
-        const isUrduColumn = [0, 1, 4].includes(data.column.index);
-        const isNumericColumn = [2, 3, 5, 6].includes(data.column.index);
-        
-        if (isNumericColumn || (!isUrduText && !isUrduColumn)) {
-          // Use helvetica for numbers and non-Urdu text
-          data.cell.styles.font = 'helvetica';
-        } else if (hasUrduFont && (isUrduText || isUrduColumn)) {
-          // Use Urdu font if available and needed
-          data.cell.styles.font = hasUrduFont ? 'NotoSansArabic' : 'helvetica';
+      // Prepare table data
+      const tableData = dataToExport.map(entry => {
+        const remainingAmount = (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
+        const runningBalance = (entry as any).runningBalance !== undefined
+          ? (entry as any).runningBalance
+          : 0;
+
+        return [
+          entry.date,
+          entry.referenceType, // Use English directly: 'Online' or 'Cash'
+          formatNumber(entry.amountAdded || 0) + ' PKR',
+          formatNumber(entry.amountWithdrawn || 0) + ' PKR',
+          (entry as any).referencePerson || '-',
+          formatNumber(remainingAmount) + ' PKR',
+          formatNumber(runningBalance) + ' PKR'
+        ];
+      });
+
+      // Add summary totals row
+      tableData.push([
+        '',
+        'TOTALS',
+        formatNumber(totalAmountAdded) + ' PKR',
+        formatNumber(totalAmountWithdrawn) + ' PKR',
+        '',
+        formatNumber(totalRemaining) + ' PKR',
+        formatNumber(totalRemaining) + ' PKR' // Total balance matches total remaining
+      ]);
+
+      // Create table with proper formatting
+      autoTable(doc, {
+        startY: 38,
+        head: [['Date', 'Reference Type', 'Amount Added', 'Amount Withdrawn', 'Reference Person', 'Remaining Amount', 'Total Balance']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 58, 138], // Dark blue
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 11,
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: 4,
+          font: 'NotoSansArabic' // Urdu headers
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: [0, 0, 0],
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: 3
+        },
+        alternateRowStyles: {
+          fillColor: [245, 247, 250]
+        },
+        columnStyles: {
+          0: { halign: 'center', font: 'NotoSansArabic' }, // تاریخ (Date)
+          1: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ کی قسم (Reference Type)
+          2: { halign: 'right', font: 'helvetica' },  // جمع شدہ رقم (Amount Added) - numbers
+          3: { halign: 'right', font: 'helvetica' },  // نکلوائی گئی رقم (Amount Withdrawn) - numbers
+          4: { halign: 'center', font: 'NotoSansArabic' }, // حوالہ شخص (Reference Person)
+          5: { halign: 'right', font: 'helvetica' },  // باقی رقم (Remaining Amount) - numbers
+          6: { halign: 'right', font: 'helvetica' }   // کل بقیہ (Total Balance) - numbers
+        },
+        styles: {
+          overflow: 'linebreak',
+          cellPadding: 3,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          font: 'NotoSansArabic' // Default font for Urdu
+        },
+        margin: { top: 38, left: 10, right: 10 },
+        didParseCell: function (data: any) {
+          // Check if font is available
+          const fonts = (doc as any).getFontList?.() || {};
+          const hasUrduFont = fonts['NotoSansArabic'] || fonts['NotoSansArabic-normal'];
+
+          // Set font based on content and availability
+          const cellText = String(data.cell.text || '');
+          const isUrduText = containsUrdu(cellText);
+          const isUrduColumn = [0, 1, 4].includes(data.column.index);
+          const isNumericColumn = [2, 3, 5, 6].includes(data.column.index);
+
+          if (isNumericColumn || (!isUrduText && !isUrduColumn)) {
+            // Use helvetica for numbers and non-Urdu text
+            data.cell.styles.font = 'helvetica';
+          } else if (hasUrduFont && (isUrduText || isUrduColumn)) {
+            // Use Urdu font if available and needed
+            data.cell.styles.font = hasUrduFont ? 'NotoSansArabic' : 'helvetica';
+          }
+
+          // Make totals row bold
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+            data.cell.styles.textColor = [0, 0, 0];
+          }
         }
-        
-        // Make totals row bold
-        if (data.row.index === tableData.length - 1) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [240, 240, 240];
-          data.cell.styles.textColor = [0, 0, 0];
-        }
-      }
-    });
+      });
 
       // Footer
       const pageCount = doc.getNumberOfPages();
@@ -389,7 +398,7 @@ const BankLedger = () => {
 
       // Generate filename
       const fileName = `Bank_Ledger_${trader?.name || 'Trader'}_${bank?.name || 'Bank'}_${dateFilter.fromDate || 'all'}_${dateFilter.toDate || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
+
       // Save PDF
       doc.save(fileName);
     } catch (error) {
@@ -426,47 +435,37 @@ const BankLedger = () => {
       setSelectedEntry(null);
       // Refresh data
       const ledgerData = await bankLedgerAPI.getAll(traderId!, bankId!);
-      // Calculate total balance (running balance)
-      let totalRunningBalance = 0;
-      const entriesWithBalance = ledgerData.entries.map((entry: any) => {
-        const normalizedEntry = {
-          ...entry,
-          id: entry.id || entry._id?.toString() || '',
+
+      const normalizedEntries = (ledgerData.entries || []).map((entry: any) => {
+        const { _id, ...rest } = entry;
+        return {
+          ...rest,
+          id: entry.id || _id?.toString() || '',
           amountAdded: entry.amountAdded || 0,
           amountWithdrawn: entry.amountWithdrawn || 0,
           referencePerson: (entry as any).referencePerson || '',
         };
-        totalRunningBalance += normalizedEntry.amountAdded - normalizedEntry.amountWithdrawn;
-        return normalizedEntry;
       });
-      
-      // Calculate running balance for each entry (newest first, calculate backwards)
-      let cumulativeBalance = totalRunningBalance;
-      const entriesWithRunningBalance = entriesWithBalance.map((entry: any) => {
-        const entryBalance = entry.amountAdded - entry.amountWithdrawn;
-        const runningBalance = cumulativeBalance;
-        cumulativeBalance -= entryBalance;
-        return {
-          ...entry,
-          runningBalance,
-        };
-      });
-      
-      const updatedEntries = entriesWithRunningBalance as BankLedgerEntryWithBalance[];
-      setEntries(updatedEntries);
+
+      setEntries(normalizedEntries);
+
+      // Use the consistent helper for sorting and calculation
+      const { entriesWithRunning, netBalance } = computeRunningAndTotals(normalizedEntries);
+
       // Reapply filter if active, otherwise show all entries
       if (dateFilter.fromDate || dateFilter.toDate) {
-        const filtered = updatedEntries.filter((entry) => {
+        const filtered = normalizedEntries.filter((entry: any) => {
           const entryDate = entry.date;
           if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
           if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
           return true;
         });
-        setFilteredEntries(filtered);
+        const { entriesWithRunning: filteredWithRunning } = computeRunningAndTotals(filtered);
+        setFilteredEntries(filteredWithRunning);
       } else {
-        setFilteredEntries(updatedEntries);
+        setFilteredEntries(entriesWithRunning);
       }
-      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
+      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : netBalance);
     } catch (error: any) {
       console.error('Error updating entry:', error);
       const errorMessage = error?.message || 'Failed to update entry. Please try again.';
@@ -478,7 +477,7 @@ const BankLedger = () => {
 
   const handleDelete = async (entry: BankLedgerEntry) => {
     if (!traderId || !bankId) return;
-    
+
     if (!window.confirm(`Are you sure you want to delete this entry?\n\nDate: ${entry.date}\nAmount Added: ${entry.amountAdded} PKR\nAmount Withdrawn: ${entry.amountWithdrawn} PKR\n\nThis action cannot be undone.`)) {
       return;
     }
@@ -487,28 +486,39 @@ const BankLedger = () => {
     try {
       await bankLedgerAPI.delete(traderId, bankId, entry.id);
       // Refresh data
+      // Refresh data
       const ledgerData = await bankLedgerAPI.getAll(traderId, bankId);
-      // Calculate total balance (running balance)
-      let totalRunningBalance = 0;
-      const entriesWithBalance = ledgerData.entries.map((entry: any) => {
-        totalRunningBalance += (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
-        return entry;
+
+      const normalizedEntries = (ledgerData.entries || []).map((entry: any) => {
+        const { _id, ...rest } = entry;
+        return {
+          ...rest,
+          id: entry.id || _id?.toString() || '',
+          amountAdded: entry.amountAdded || 0,
+          amountWithdrawn: entry.amountWithdrawn || 0,
+          referencePerson: (entry as any).referencePerson || '',
+        };
       });
-      const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
-      setEntries(updatedEntries);
+
+      setEntries(normalizedEntries);
+
+      // Use the consistent helper for sorting and calculation
+      const { entriesWithRunning, netBalance } = computeRunningAndTotals(normalizedEntries);
+
       // Reapply filter if active, otherwise show all entries
       if (dateFilter.fromDate || dateFilter.toDate) {
-        const filtered = updatedEntries.filter((entry) => {
+        const filtered = normalizedEntries.filter((entry: any) => {
           const entryDate = entry.date;
           if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
           if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
           return true;
         });
-        setFilteredEntries(filtered);
+        const { entriesWithRunning: filteredWithRunning } = computeRunningAndTotals(filtered);
+        setFilteredEntries(filteredWithRunning);
       } else {
-        setFilteredEntries(updatedEntries);
+        setFilteredEntries(entriesWithRunning);
       }
-      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
+      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : netBalance);
     } catch (error: any) {
       console.error('Error deleting entry:', error);
       const errorMessage = error?.message || 'Failed to delete entry. Please try again.';
@@ -523,11 +533,11 @@ const BankLedger = () => {
     const errors: Record<string, string> = {};
 
     if (!addFormData.date) errors.date = 'Date is required';
-    
+
     // At least one amount must be provided
     const amountAdded = parseFloat(addFormData.amountAdded) || 0;
     const amountWithdrawn = parseFloat(addFormData.amountWithdrawn) || 0;
-    
+
     if (amountAdded <= 0 && amountWithdrawn <= 0) {
       errors.amountAdded = 'Either amount added or amount withdrawn must be greater than 0';
     }
@@ -559,28 +569,39 @@ const BankLedger = () => {
       });
       setAddFormErrors({});
       // Refresh data
+      // Refresh data
       const ledgerData = await bankLedgerAPI.getAll(traderId, bankId);
-      // Calculate total balance (running balance)
-      let totalRunningBalance = 0;
-      const entriesWithBalance = ledgerData.entries.map((entry: any) => {
-        totalRunningBalance += (entry.amountAdded || 0) - (entry.amountWithdrawn || 0);
-        return entry;
+
+      const normalizedEntries = (ledgerData.entries || []).map((entry: any) => {
+        const { _id, ...rest } = entry;
+        return {
+          ...rest,
+          id: entry.id || _id?.toString() || '',
+          amountAdded: entry.amountAdded || 0,
+          amountWithdrawn: entry.amountWithdrawn || 0,
+          referencePerson: (entry as any).referencePerson || '',
+        };
       });
-      const updatedEntries = entriesWithBalance as BankLedgerEntryWithBalance[];
-      setEntries(updatedEntries);
+
+      setEntries(normalizedEntries);
+
+      // Use the consistent helper for sorting and calculation
+      const { entriesWithRunning, netBalance } = computeRunningAndTotals(normalizedEntries);
+
       // Reapply filter if active, otherwise show all entries
       if (dateFilter.fromDate || dateFilter.toDate) {
-        const filtered = updatedEntries.filter((entry) => {
+        const filtered = normalizedEntries.filter((entry: any) => {
           const entryDate = entry.date;
           if (dateFilter.fromDate && entryDate < dateFilter.fromDate) return false;
           if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
           return true;
         });
-        setFilteredEntries(filtered);
+        const { entriesWithRunning: filteredWithRunning } = computeRunningAndTotals(filtered);
+        setFilteredEntries(filteredWithRunning);
       } else {
-        setFilteredEntries(updatedEntries);
+        setFilteredEntries(entriesWithRunning);
       }
-      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : totalRunningBalance);
+      setTotalBalance(ledgerData.totalBalance !== undefined ? ledgerData.totalBalance : netBalance);
     } catch (error) {
       console.error('Error creating entry:', error);
       alert('Failed to create entry. Please try again.');
@@ -642,11 +663,10 @@ const BankLedger = () => {
       header: 'حوالہ کی قسم',
       render: (row: BankLedgerEntryWithBalance) => (
         <span
-          className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-            row.referenceType === 'Online'
-              ? 'bg-accent/10 text-accent'
-              : 'bg-warning/10 text-warning'
-          }`}
+          className={`px-2.5 py-1 rounded-full text-xs font-medium ${row.referenceType === 'Online'
+            ? 'bg-accent/10 text-accent'
+            : 'bg-warning/10 text-warning'
+            }`}
         >
           {row.referenceType === 'Online' ? 'آن لائن' : 'نقد'}
         </span>
@@ -695,8 +715,8 @@ const BankLedger = () => {
       header: 'کل بقیہ',
       render: (row: BankLedgerEntryWithBalance & { runningBalance?: number }) => {
         // Show cumulative running balance (total balance up to this entry)
-        const runningBalance = (row as any).runningBalance !== undefined 
-          ? (row as any).runningBalance 
+        const runningBalance = (row as any).runningBalance !== undefined
+          ? (row as any).runningBalance
           : 0;
         return <BalanceDisplay amount={runningBalance} currency="PKR" />;
       },
@@ -781,9 +801,8 @@ const BankLedger = () => {
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
             <p
-              className={`text-2xl font-bold ${
-                totalBalance >= 0 ? 'text-success' : 'text-destructive'
-              }`}
+              className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-success' : 'text-destructive'
+                }`}
             >
               {totalBalance >= 0 ? '+' : ''}
               {new Intl.NumberFormat('en-PK').format(totalBalance)} PKR

@@ -93,8 +93,8 @@ const Special = () => {
   const handleClearFilter = () => {
     setDateFilter({ fromDate: '', toDate: '' });
     setFilteredEntries(entries);
-    // Reverse for display: newest first
-    setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
+    // Display in chronological order (Oldest First)
+    setFilteredEntriesWithBalance([...entriesWithBalance]);
   };
 
   /**
@@ -171,11 +171,11 @@ const Special = () => {
           if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
           return true;
         });
-        // Reverse for display: newest first
-        setFilteredEntriesWithBalance([...filtered].reverse());
+        // Display in chronological order (Oldest First)
+        setFilteredEntriesWithBalance([...filtered]);
       } else {
-        // Reverse for display: newest first
-        setFilteredEntriesWithBalance([...calculated].reverse());
+        // Display in chronological order (Oldest First)
+        setFilteredEntriesWithBalance([...calculated]);
       }
     } else {
       setEntriesWithBalance([]);
@@ -186,8 +186,8 @@ const Special = () => {
   // Update filter logic to also update filteredEntriesWithBalance
   useEffect(() => {
     if (!dateFilter.fromDate && !dateFilter.toDate) {
-      // Reverse for display: newest first
-      setFilteredEntriesWithBalance([...entriesWithBalance].reverse());
+      // Display in chronological order (Oldest First)
+      setFilteredEntriesWithBalance([...entriesWithBalance]);
     } else {
       const filtered = entriesWithBalance.filter((entry) => {
         const entryDate = entry.date;
@@ -195,8 +195,8 @@ const Special = () => {
         if (dateFilter.toDate && entryDate > dateFilter.toDate) return false;
         return true;
       });
-      // Reverse for display: newest first
-      setFilteredEntriesWithBalance([...filtered].reverse());
+      // Display in chronological order (Oldest First)
+      setFilteredEntriesWithBalance([...filtered]);
     }
   }, [entriesWithBalance, dateFilter]);
 
@@ -459,8 +459,8 @@ const Special = () => {
       render: (row: SpecialEntryWithBalance) => (
         <span
           className={`px-2.5 py-1 rounded-full text-xs font-medium ${row.balanceType === 'Online'
-              ? 'bg-accent/10 text-accent'
-              : 'bg-warning/10 text-warning'
+            ? 'bg-accent/10 text-accent'
+            : 'bg-warning/10 text-warning'
             }`}
         >
           {row.balanceType === 'Online' ? 'آن لائن' : 'نقد'}
